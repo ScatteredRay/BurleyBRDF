@@ -10,6 +10,7 @@ function typeFromPath(filePath) {
         ".js": "application/javascript",
         ".dds": "image/dds",
         ".obj": "text/plain",
+        ".mtlx": "text/plain",
     };
     return typeMap[ext.toLowerCase()];
 }
