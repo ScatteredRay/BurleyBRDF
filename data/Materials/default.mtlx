@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<materialx>
+    <shader name="disney">
+        <input name="albedo" type="color3" value="0.5, 0.8, 0.5"/>
+        <input name="specular" type="float" value="1.0"/>
+    </shader>
+    <material name="default">
+        <shaderref name="disney"/>
+    </material>
+</materialx>
