@@ -53,9 +53,8 @@ function init() {
         IBL.needsUpdate = true;
     });
 
-    var material = new THREE.MeshStandardMaterial();
-    //material.map = texture;
-    material.envMap = IBL;
+    var material = create_materialx_shadermaterial("/data/Materials/default.mtlx", "default");
+    //material.envMap = IBL;
 
     var loader = new THREE.OBJLoader(manager);
     loader.load('/data/Meshes/Suzanne.obj', function(object) {
@@ -158,10 +157,10 @@ function init() {
         var ambGui = gui.addFolder('Ambient');
         addColor(ambGui, ambient.color, 'color');
         ambGui.add(ambient, 'intensity').min(0.0).step(0.01).onChange(uc);
-        ambGui.add(material, 'envMapIntensity').min(0.0).step(0.01).onChange(uc);
+        //ambGui.add(material, 'envMapIntensity').min(0.0).step(0.01).onChange(uc);
         var matGui = gui.addFolder('Material');
         addColor(matGui, material.color, 'color');
-        matGui.add(material, 'roughness', 0, 1).onChange(uc);
+        //matGui.add(material, 'roughness', 0, 1).onChange(uc);
         var nextLight = 1;
         var guiParams = {
             addLight : function() {
