@@ -76,6 +76,7 @@ function parse_materialx(mtlx, mtls) {
                 shaderInput.type = inputs[j].getAttribute('type');
                 var value = inputs[j].getAttribute('value');
                 if(value !== null) {
+                    shaderInput.input = {type: 'value', valueType: shaderInput.type, value: parse_mtlx_value(value, shaderInput.type)};
                     shaderInput.value = value;
                     shaderInput.value = parse_mtlx_value(shaderInput.value, shaderInput.type);
                 }
@@ -93,6 +94,7 @@ function parse_materialx(mtlx, mtls) {
                             var file_prefix = get_file_prefix(inNode);
                             file = file_prefix + file;
                             shaderInput.file = file;
+                            shaderInput.input = {type: 'file', value: file};
                         }
                     }
                 }
@@ -112,12 +114,54 @@ function load_materialx_shaders(path, cb) {
         'float': {
             'glslType': 'float',
             'uniformType': '1f',
+            'defaultGLSL': '0.0',
         },
         'color3': {
             'glslType': 'vec3',
             'uniformType': '3f',
+            'defaultGLSL': 'vec3(0.0, 0.0, 0.0)',
+        },
+        'color4': {
+            'glslType': 'vec4',
+            'uniformType': '4f',
+            'defaultGLSL': 'vec4(0.0, 0.0, 0.0, 0.0)',
         },
     };
+
+    var nameCounter = 0;
+
+    function gen_name() {
+        return "lvar" + nameCounter++;
+    }
+
+    function add_opgraph_node(node, uNamer, uniforms, decls) {
+        var accessors = [];
+        var ret = '';
+        var retType = 'none';
+        switch(node.type) {
+        case 'file':
+            var texCoord = "vUv";
+            //XXX: This needs to get loaded.
+            var channelName = uNamer();
+            uniforms[uniPrefix + channelName] = {type: 't', file: node.value};
+            decls.push("uniform sampler2D " + uniPrefix + channelName + ";");
+            ret = gen_name();
+            retType = 'color4';
+            accessors.push("vec4 " + ret + " = texture2D(" + uniPrefix + i + ", " + texCoord + ");");
+            break;
+        case 'value':
+            var channelName = uNamer();
+            var uniformType = mtlxTypes[node.valueType].uniformType;
+            var glsltype = mtlxTypes[node.valueType].glslType;
+            uniforms[uniPrefix + channelName] = {type: uniformType, value: node.value};
+            decls.push("uniform " + glsltype + " " + uniPrefix + channelName + ";");
+            ret = gen_name();
+            retType = node.valueType;
+            accessors.push(glsltype + " " + ret + " = " + uniPrefix + channelName + ";");
+            break;
+        }
+        return {accessors: accessors, ret: ret, retType: retType};
+    }
 
     var materials = {};
 
@@ -139,18 +183,24 @@ function load_materialx_shaders(path, cb) {
                 //XXX: If the mtlx is from a malicious source, we could create harmful shaders.
                 var input = mtl[s].shaderInputs[i];
                 var glsltype = mtlxTypes[input.type].glslType;
-                var uniformType = mtlxTypes[input.type].uniformType;
 
-                if(typeof input.file !== 'undefined') {
-                    var texCoord = "vUv";
-                    decls.push("uniform sampler2D " + uniPrefix + i + ";");
-                    accessors.push(glsltype + " " + accPrefix + i + "() { return texture2D(" + uniPrefix + i + ", " + texCoord + "); }");
+                var nameCounter = 0;
+                function uNamer() {
+                    var name = i;
+                    if(nameCounter > 0)
+                        name += nameCounter;
+                    nameCounter++;
+                    return name;
                 }
-                else if(typeof input.value !== 'undefined') {
-                    uniforms[uniPrefix + i] = {type: uniformType, value: input.value};
-                    decls.push("uniform " + glsltype + " " + uniPrefix + i + ";");
-                    accessors.push(glsltype + " " + accPrefix + i + "() { return " + uniPrefix + i + "; }");
-                }
+
+                accessors.push(glsltype + " " + accPrefix + i + "() {");
+                var ret = add_opgraph_node(input.input, uNamer, uniforms, decls);
+                if(ret.ret.length === 0)
+                    ret.ret = mtlxTypes[input.type].defaultGLSL;
+                for(var a in ret.accessors) { accessors.push(ret.accessors[a])  }
+                //XXX: Type conversion based on ret.retType;
+                accessors.push("return " + ret.ret + ";");
+                accessors.push("}");
             }
         }
         if(typeof cb !== 'undefined')
@@ -189,6 +239,7 @@ if(typeof THREE !== 'undefined') {
                                 mtl[matName].accessors.join('\n') + "\n\n" +
                                 text;
                             material.fragmentShader = fragSrc;
+                            console.log(fragSrc);
                             material.needsUpdate = true;
                         });
                     }
