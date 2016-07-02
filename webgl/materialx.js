@@ -33,10 +33,14 @@ function parse_materialx(mtlx, mtls) {
 
     function get_file_prefix(node) {
         var prefix = node.getAttribute('fileprefix');
-        if(prefix === null)
+        if(prefix === null || prefix.length === 0) {
             prefix = "";
-        else
-            prefix += '/';
+        }
+        else {
+            if(prefix[prefix.length-1] !== '/') {
+                prefix += '/';
+            }
+        }
         if(node.parentElement !== null)
             prefix = get_file_prefix(node.parentElement) + prefix;
         return prefix;
@@ -115,16 +119,19 @@ function load_materialx_shaders(path, cb) {
             'glslType': 'float',
             'uniformType': '1f',
             'defaultGLSL': '0.0',
+            'downcast': '.r',
         },
         'color3': {
             'glslType': 'vec3',
             'uniformType': '3f',
             'defaultGLSL': 'vec3(0.0, 0.0, 0.0)',
+            'downcast': '.rgb',
         },
         'color4': {
             'glslType': 'vec4',
             'uniformType': '4f',
             'defaultGLSL': 'vec4(0.0, 0.0, 0.0, 0.0)',
+            'downcast': '.rgba',
         },
     };
 
@@ -147,7 +154,7 @@ function load_materialx_shaders(path, cb) {
             decls.push("uniform sampler2D " + uniPrefix + channelName + ";");
             ret = gen_name();
             retType = 'color4';
-            accessors.push("vec4 " + ret + " = texture2D(" + uniPrefix + i + ", " + texCoord + ");");
+            accessors.push("vec4 " + ret + " = texture2D(" + uniPrefix + channelName + ", " + texCoord + ");");
             break;
         case 'value':
             var channelName = uNamer();
@@ -161,6 +168,14 @@ function load_materialx_shaders(path, cb) {
             break;
         }
         return {accessors: accessors, ret: ret, retType: retType};
+    }
+
+    function glslconvert(frag, fromType, toType) {
+        //XXX
+        if(fromType === 'float')
+            return frag;
+        else
+            return frag + mtlxTypes[toType].downcast;
     }
 
     var materials = {};
@@ -183,6 +198,7 @@ function load_materialx_shaders(path, cb) {
                 //XXX: If the mtlx is from a malicious source, we could create harmful shaders.
                 var input = mtl[s].shaderInputs[i];
                 var glsltype = mtlxTypes[input.type].glslType;
+                var downcast = mtlxTypes[input.type].downcast;
 
                 var nameCounter = 0;
                 function uNamer() {
@@ -193,13 +209,15 @@ function load_materialx_shaders(path, cb) {
                     return name;
                 }
 
+                decls.push(glsltype + " " + accPrefix + i + "();");
+
                 accessors.push(glsltype + " " + accPrefix + i + "() {");
                 var ret = add_opgraph_node(input.input, uNamer, uniforms, decls);
                 if(ret.ret.length === 0)
                     ret.ret = mtlxTypes[input.type].defaultGLSL;
                 for(var a in ret.accessors) { accessors.push(ret.accessors[a])  }
                 //XXX: Type conversion based on ret.retType;
-                accessors.push("return " + ret.ret + ";");
+                accessors.push("return " + glslconvert(ret.ret, ret.retType, input.type) + ";");
                 accessors.push("}");
             }
         }
@@ -214,7 +232,26 @@ if(typeof THREE !== 'undefined') {
     function create_materialx_shadermaterial(path, matName, cb) {
         var material = new THREE.ShaderMaterial({});
         load_materialx_shaders(path, function(mtl) {
+
+            var manager = new THREE.LoadingManager();
+            manager.onProgress = function(item, loaded, total) {
+                console.log(item, loaded, total);
+            }
+            var loader = new THREE.ImageLoader(manager);
+
             var uniforms = mtl[matName].uniforms;
+            for(var u in uniforms) {
+                if(typeof uniforms[u].file !== 'undefined') {
+                    var texture = new THREE.Texture();
+                    var uu = u;
+                    loader.load(uniforms[u].file, function(image) {
+                        texture.image = image;
+                        texture.magFilter = THREE.NearestFilter;
+                        texture.needsUpdate = true;
+                        uniforms[uu].value = texture;
+                    });
+                }
+            }
             uniforms = THREE.UniformsUtils.merge([THREE.UniformsLib["lights"], uniforms]);
             material.uniforms = uniforms;
             material.lights = true;
@@ -236,17 +273,15 @@ if(typeof THREE !== 'undefined') {
                         res.text().then(function(text) {
                             var fragSrc =
                                 mtl[matName].decls.join('\n') + "\n\n" +
-                                mtl[matName].accessors.join('\n') + "\n\n" +
-                                text;
+                                text + "\n\n" +
+                                mtl[matName].accessors.join('\n') + "\n\n";
                             material.fragmentShader = fragSrc;
-                            console.log(fragSrc);
                             material.needsUpdate = true;
                         });
                     }
                 }
             );
         });
-        window.mmat = material;
         return material;
     }
 }

@@ -28,14 +28,6 @@ function init() {
         console.log(item, loaded, total);
     }
 
-    var texture = new THREE.Texture();
-
-    var loader = new THREE.ImageLoader(manager);
-    loader.load('/data/Textures/map.png', function(image) {
-        texture.image = image;
-        texture.needsUpdate = true;
-    });
-
     function genCubeUrls(prefix, postfix) {
         return [
             prefix + 'px' + postfix, prefix + 'nx' + postfix,

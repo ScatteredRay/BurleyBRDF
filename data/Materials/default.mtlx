@@ -1,10 +1,22 @@
-<?xml version="1.0"?>
-<materialx>
-    <shader name="disney">
-        <input name="albedo" type="color3" value="0.5, 0.8, 0.5"/>
-        <input name="specular" type="float" value="1.0"/>
-    </shader>
-    <material name="default">
-        <shaderref name="disney"/>
-    </material>
+<?xml version="1.0" encoding="UTF-8"?>
+<materialx version="1.25" colorspace="gamma.rec709g22" require="matopgraph">
+  <opgraph name="default_opgraph" fileprefix="/data/Textures">
+    <image name="albedoColor_flatImage" type="color3">
+      <parameter name="file" type="filename" value="Checker2.png" />
+      <parameter name="uvset" type="integer" value="0" />
+    </image>
+    <output name="albedoColor_output" type="color3">
+      <parameter name="in" type="opgraphnode" value="albedoColor_flatImage" />
+      <parameter name="width" type="integer" value="512" />
+      <parameter name="height" type="integer" value="512" />
+    </output>
+  </opgraph>
+  <shader name="disney" shadertype="Surface" shaderprogram="disneySrf">
+    <input name="albedo" type="color3" opgraph="default_opgraph" graphoutput="albedoColor_output" />
+    <input name="albedo2" type="color3" value="0.5, 1.0, 0.5" />
+    <input name="specular" type="float" value="1.0" />
+  </shader>
+  <material name="default">
+    <shaderref name="disney" shadertype="Surface" />
+  </material>
 </materialx>
