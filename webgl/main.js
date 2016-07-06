@@ -46,7 +46,7 @@ function init() {
     });
 
     var material = create_materialx_shadermaterial("/data/Materials/default.mtlx", "default");
-    //material.envMap = IBL;
+    material.uniforms.envMap = {type: 't', value: IBL};
 
     var loader = new THREE.OBJLoader(manager);
     loader.load('/data/Meshes/Suzanne.obj', function(object) {
@@ -65,6 +65,7 @@ function init() {
     ground.rotateX(-Math.PI / 2.0);
     ground.receiveShadow = true;
     scene.add(ground);
+    ground.material.envMap = IBL;
 
     renderer = new THREE.WebGLRenderer({antialias: true});
     renderer.setPixelRatio(window.devicePixelRatio);

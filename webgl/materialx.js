@@ -243,16 +243,18 @@ if(typeof THREE !== 'undefined') {
             for(var u in uniforms) {
                 if(typeof uniforms[u].file !== 'undefined') {
                     var texture = new THREE.Texture();
-                    var uu = u;
-                    loader.load(uniforms[u].file, function(image) {
+                    loader.load(uniforms[u].file, function(u){return function(image) {
                         texture.image = image;
                         texture.magFilter = THREE.NearestFilter;
                         texture.needsUpdate = true;
-                        uniforms[uu].value = texture;
-                    });
+                        uniforms[u].value = texture;
+                    }}(u));
                 }
             }
             uniforms = THREE.UniformsUtils.merge([THREE.UniformsLib["lights"], uniforms]);
+            for(var u in material.uniforms) {
+                uniforms[u] = material.uniforms[u];
+            }
             material.uniforms = uniforms;
             material.lights = true;
 

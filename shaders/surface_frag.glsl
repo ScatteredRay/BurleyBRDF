@@ -1,6 +1,8 @@
 varying vec2 vUv;
 varying vec3 vNormal;
 
+uniform samplerCube envMap;
+
 struct DirectionalLight
 {
     vec3 color;
@@ -18,6 +20,7 @@ void main()
     vec3 albedo = mat_albedo();
 
     vec3 color = vec3(0.00, 0.00, 0.00);
+    //color += textureCube(envMap, vNormal).rgb * albedo;
     for(int i = 0; i < NUM_DIR_LIGHTS; i++) {
         vec3 lightVector = normalize(directionalLights[i].direction);
         color += clamp(dot(lightVector, vNormal), 0.0, 1.0) * directionalLights[i].color * albedo;
