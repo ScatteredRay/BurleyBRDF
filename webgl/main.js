@@ -36,14 +36,9 @@ function init() {
         ];
     };
 
-    var IBL = new THREE.CubeTexture();
-
     var hdrPaths = genCubeUrls('/data/PisaHDR/', '.hdr');
     var loader = new THREE.HDRCubeTextureLoader();
-    loader.load(THREE.UnsignedByteType, hdrPaths, function(cubeMap) {
-        IBL.image = cubeMap.image;
-        IBL.needsUpdate = true;
-    });
+    var IBL = loader.load(THREE.FloatType, hdrPaths);
 
     var material = create_materialx_shadermaterial("/data/Materials/default.mtlx", "default");
     material.uniforms.envMap = {type: 't', value: IBL};
@@ -52,6 +47,10 @@ function init() {
     loader.load('/data/Meshes/Suzanne.obj', function(object) {
         object.traverse(function(child) {
             if(child instanceof THREE.Mesh) {
+                if(child.geometry.index === null) {
+                    child.geometry.setIndex(new THREE.BufferAttribute(new Uint32Array([...Array(child.geometry.attributes.position.count).keys()]), 1, false));
+                }
+                THREE.BufferGeometryUtils.computeTangents(child.geometry);
                 child.castShadow = true;
                 child.receiveShadow = true;
                 child.material = material;

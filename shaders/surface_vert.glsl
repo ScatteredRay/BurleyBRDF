@@ -1,10 +1,22 @@
+attribute vec4 tangent;
+
 varying vec2 vUv;
-varying vec3 vNormal;
+varying vec3 vWorldNormal;
+varying vec3 vScreenNormal;
+varying vec3 vWorldTangent;
+varying vec3 vWorldBitangent;
+varying vec3 vWorldPos;
+varying vec3 vReflect;
 
 void main()
 {
     vUv = uv;
-    vNormal = normal;
-    vNormal = (modelViewMatrix * vec4(normal, 0.0)).xyz;
+    vWorldPos = (modelMatrix * vec4(position.xyz, 1.0)).xyz;
+    vWorldNormal = (modelMatrix * vec4(normal, 0.0)).xyz;
+    vScreenNormal = normalize((normalMatrix * normal).xyz);
+    vWorldTangent = normalize((modelMatrix * vec4(tangent.xyz, 0.0)).xyz);
+    vWorldBitangent = cross(vWorldNormal, vWorldTangent);
+    vec3 cameraToVertex = normalize(vWorldPos.xyz - cameraPosition);
+    vReflect = reflect(cameraToVertex, vWorldNormal);
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
 }
