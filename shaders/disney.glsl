@@ -73,6 +73,8 @@ vec3 BRDF( vec3 L, vec3 V, vec3 N, vec3 X, vec3 Y )
     float clearcoat = 0.0;
     float clearcoatGloss = 1.0;
 
+    baseColor = mat_albedo();
+
     float NdotL = dot(N,L);
     float NdotV = dot(N,V);
     if (NdotL < 0.0 || NdotV < 0.0) return vec3(0.0);

@@ -4,6 +4,7 @@ var camera;
 var scene;
 var renderer;
 var controls;
+var material;
 
 var mouseX = 0;
 var mouseY = 0;
@@ -42,6 +43,7 @@ function init() {
 
     var material = create_materialx_shadermaterial("/data/Materials/default.mtlx", "default");
     material.uniforms.envMap = {type: 't', value: IBL};
+    material.uniforms.instRand = {type: 'f', value: 0.0};
 
     var loader = new THREE.OBJLoader(manager);
     loader.load('/data/Meshes/Suzanne.obj', function(object) {
@@ -183,6 +185,7 @@ function onWindowResize() {
 }*/
 
 function animate() {
+    material.uniforms.instRand.value = Math.random();
     //requestAnimationFrame(animate);
     render();
 }

@@ -6,6 +6,7 @@ varying vec3 vScreenNormal;
 varying vec3 vWorldTangent;
 varying vec3 vWorldBitangent;
 varying vec3 vWorldPos;
+varying vec4 vScreenPos;
 varying vec3 vReflect;
 
 void main()
@@ -15,8 +16,9 @@ void main()
     vWorldNormal = (modelMatrix * vec4(normal, 0.0)).xyz;
     vScreenNormal = normalize((normalMatrix * normal).xyz);
     vWorldTangent = normalize((modelMatrix * vec4(tangent.xyz, 0.0)).xyz);
-    vWorldBitangent = cross(vWorldNormal, vWorldTangent);
+    vWorldBitangent = normalize(cross(vWorldNormal, vWorldTangent));
+    vWorldTangent = cross(vWorldTangent, vWorldNormal);
     vec3 cameraToVertex = normalize(vWorldPos.xyz - cameraPosition);
     vReflect = reflect(cameraToVertex, vWorldNormal);
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    gl_Position = vScreenPos = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
 }
