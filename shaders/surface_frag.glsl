@@ -26,7 +26,7 @@ uniform DirectionalLight directionalLights[NUM_DIR_LIGHTS];
 
 void main()
 {
-    vec3 albedo = mat_albedo();
+    vec3 albedo = mat_baseColor();
 
     vec3 color = vec3(0.00, 0.00, 0.00);
     for(int i = 0; i < NUM_DIR_LIGHTS; i++) {

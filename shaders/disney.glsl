@@ -73,7 +73,17 @@ vec3 BRDF( vec3 L, vec3 V, vec3 N, vec3 X, vec3 Y )
     float clearcoat = 0.0;
     float clearcoatGloss = 1.0;
 
-    baseColor = mat_albedo();
+    baseColor = mat_baseColor();
+    metallic = mat_metallic();
+    subsurface = mat_subsurface();
+    specular = mat_specular();
+    roughness = mat_roughness();
+    specularTint = mat_specularTint();
+    anisotropic = mat_anisotropic();
+    sheen = mat_sheen();
+    sheenTint = mat_sheenTint();
+    clearcoat = mat_clearcoat();
+    clearcoatGloss = mat_clearcoatGloss();
 
     float NdotL = dot(N,L);
     float NdotV = dot(N,V);
