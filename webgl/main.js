@@ -117,6 +117,7 @@ function init() {
     material = create_materialx_shadermaterial(
         "/data/Materials/default.mtlx", "default",
         function(mtl) {
+            addGuiMaterial(mtl);
             updateRender();
         });
     material.uniforms.envMap = {type: 't', value: IBL};
@@ -227,6 +228,16 @@ function init() {
         return controller;
     }
 
+    function addFloat(gui, parent, path, name) {
+        var c = {};
+        c[name] = parent[path]
+        var controller = gui.add(c, name, 0, 1).onChange(function(e) {
+            parent[path] = c[name];
+            uc(e);
+        });
+        return controller;
+    }
+
     function addLight(name) {
         var directionalLight = new THREE.DirectionalLight(0xffeedd);
         directionalLight.position.set(-0.69, 0.48, 0.63);
@@ -259,9 +270,6 @@ function init() {
         addColor(ambGui, ambient.color, 'color');
         ambGui.add(ambient, 'intensity').min(0.0).step(0.01).onChange(uc);
         //ambGui.add(material, 'envMapIntensity').min(0.0).step(0.01).onChange(uc);
-        var matGui = gui.addFolder('Material');
-        addColor(matGui, material.color, 'color');
-        //matGui.add(material, 'roughness', 0, 1).onChange(uc);
         var nextLight = 1;
         var guiParams = {
             addLight : function() {
@@ -271,6 +279,34 @@ function init() {
         gui.add(guiParams, 'addLight');
         guiParams.addLight();
 
+    }
+
+    var matNum = 0;
+    function addGuiMaterial(mat) {
+        var matGui = gui.addFolder('Material ' + matNum++);
+        function addUniform(uniform, name) {
+            switch(mat.uniforms[uniform].type) {
+            case '3f':
+                addColor(matGui, mat.uniforms[uniform].value, name);
+                break;
+            case 'f':
+            case '1f':
+                addFloat(matGui, mat.uniforms[uniform], 'value', name);
+                break;
+            }
+        }
+
+        addUniform('u_baseColor', "baseColor");
+        addUniform('u_metallic', 'metallic');
+        addUniform('u_subsurface', 'subsurface');
+        addUniform('u_specular', 'specular');
+        addUniform('u_roughness', 'roughness');
+        addUniform('u_specularTint', 'specularTint');
+        addUniform('u_anisotropic', 'anisotropic');
+        addUniform('u_sheen', 'sheen');
+        addUniform('u_sheenTint', 'sheenTint');
+        addUniform('u_clearcoat', 'clearcoat');
+        addUniform('u_clearcoatGloss', 'clearcoatGloss');
     }
 }
 
