@@ -20,6 +20,11 @@ var gui;
 var maxAccum = 2048;
 var accum = 0;
 
+var jitterAA = true;
+
+var width = 0;
+var height = 0;
+
 init();
 animate();
 
@@ -147,9 +152,12 @@ function init() {
     renderer.shadowMap.type = THREE.PCFShadowMap;
     //renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
+    width = window.innerWidth;
+    height = window.innerHeight;
+
     drawTarget = new THREE.WebGLRenderTarget(
-        renderer.getSize().width,
-        renderer.getSize().height,
+        width,
+        height,
         {
             minFilter: THREE.LinearFilter,
             magFilter: THREE.LinearFilter,
@@ -159,8 +167,8 @@ function init() {
 
     accumTargets = [];
     accumTargets[0] = new THREE.WebGLRenderTarget(
-        renderer.getSize().width,
-        renderer.getSize().height,
+        width,
+        height,
         {
             minFilter: THREE.LinearFilter,
             magFilter: THREE.LinearFilter,
@@ -292,7 +300,19 @@ function animate() {
 }
 
 function render() {
-    renderer.render(scene, camera, drawTarget);
+    var cam = camera;
+    if(jitterAA) {
+        cam = camera.clone();
+        cam.projectionMatrix = cam.projectionMatrix.clone();
+        var jitterMat = new THREE.Matrix4();
+        jitterMat.set(
+            1, 0, 0, (Math.random() - 0.5) / (width * 0.5),
+            0, 1, 0, (Math.random() - 0.5) / (height * 0.5),
+            0, 0, 1, 0,
+            0, 0, 0, 1);
+        cam.projectionMatrix.premultiply(jitterMat);
+    }
+    renderer.render(scene, cam, drawTarget);
 
     accumPass.uniforms.inTex = {value: drawTarget.texture};
     accumPass.uniforms.accumTex = {value: accumTargets[0].texture};
