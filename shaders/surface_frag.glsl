@@ -39,7 +39,7 @@ void main()
     vec3 nx = normalize(cross(nz, vWorldTangent));
     vec3 ny = normalize(cross(nx, nz));
     color = vec3(0.0, 0.0, 0.0);
-    const int numSamples = 32;
+    const int numSamples = 1;
     for(int s = 0; s < numSamples; s++) {
         vec2 r = rand2(vScreenPos.xy + vec2(float(s) / 17.456, instRand));
         vec4 d = CosWeightedHemisphere(r, nz, nx, ny);

@@ -239,16 +239,30 @@ if(typeof THREE !== 'undefined') {
             }
             var loader = new THREE.ImageLoader(manager);
 
+            var nret = 0;
+            var needed = 2;
+
+            function maybeCB() {
+                nret++;
+                if(nret === needed)
+                    cb(material);
+            }
+
             var uniforms = mtl[matName].uniforms;
+
             for(var u in uniforms) {
                 if(typeof uniforms[u].file !== 'undefined') {
                     var texture = new THREE.Texture();
-                    loader.load(uniforms[u].file, function(u){return function(image) {
-                        texture.image = image;
-                        texture.magFilter = THREE.NearestFilter;
-                        texture.needsUpdate = true;
-                        uniforms[u].value = texture;
-                    }}(u));
+                    needed++;
+                    loader.load(uniforms[u].file, function(u){
+                        return function(image) {
+                            texture.image = image;
+                            texture.magFilter = THREE.NearestFilter;
+                            uniforms[u].value = texture;
+                            texture.needsUpdate = true;
+                            maybeCB();
+                        }
+                    }(u));
                 }
             }
             uniforms = THREE.UniformsUtils.merge([THREE.UniformsLib["lights"], uniforms]);
@@ -264,6 +278,7 @@ if(typeof THREE !== 'undefined') {
                         res.text().then(function(text) {
                             material.vertexShader = text;
                             material.needsUpdate = true;
+                            maybeCB();
                         });
                     }
                 }
@@ -279,6 +294,7 @@ if(typeof THREE !== 'undefined') {
                                 mtl[matName].accessors.join('\n') + "\n\n";
                             material.fragmentShader = fragSrc;
                             material.needsUpdate = true;
+                            maybeCB();
                         });
                     }
                 }

@@ -6,13 +6,76 @@ var renderer;
 var controls;
 var material;
 
+var drawTarget;
+var accumTargets;
+
+var accumPass;
+var copyPass;
+
 var mouseX = 0;
 var mouseY = 0;
 
 var gui;
 
+var maxAccum = 2048;
+var accum = 0;
+
 init();
 animate();
+
+function updateRender() {
+    accum = 0;
+    requestAnimationFrame(animate);
+}
+
+function CreateFullscreenPass(fragShader) {
+    var pass = {};
+    pass.material = new THREE.ShaderMaterial();
+
+    pass.uniforms = pass.material.uniforms = {};
+    pass.material.defines = {};
+
+    fetch('/shaders/pass_vert.glsl').then(
+        function(res) {
+            if(res.ok) {
+                res.text().then(function(text) {
+                    pass.material.vertexShader = text;
+                    pass.material.needsUpdate = true;
+                    updateRender();
+                });
+            }
+        }
+    );
+
+    fetch(fragShader).then(
+        function(res) {
+            if(res.ok) {
+                res.text().then(function(text) {
+                    pass.material.fragmentShader = text;
+                    pass.material.needsUpdate = true;
+                    updateRender();
+                });
+            }
+        }
+    );
+
+    pass.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    pass.scene = new THREE.Scene();
+    pass.quad = new THREE.Mesh(new THREE.PlaneBufferGeometry(2, 2), null);
+    pass.scene.add(pass.quad);
+
+    pass.render = function(renderTarget) {
+        pass.quad.material = pass.material;
+        if(!renderTarget) {
+            renderer.render(pass.scene, pass.camera);
+        }
+        else {
+            renderer.render(pass.scene, pass.camera, renderTarget);
+        }
+    };
+
+    return pass;
+}
 
 function init() {
     container = document.createElement('div');
@@ -39,9 +102,18 @@ function init() {
 
     var hdrPaths = genCubeUrls('/data/PisaHDR/', '.hdr');
     var loader = new THREE.HDRCubeTextureLoader();
-    var IBL = loader.load(THREE.FloatType, hdrPaths);
+    var IBL = loader.load(
+        THREE.FloatType,
+        hdrPaths,
+        function() {
+            updateRender();
+        });
 
-    var material = create_materialx_shadermaterial("/data/Materials/default.mtlx", "default");
+    material = create_materialx_shadermaterial(
+        "/data/Materials/default.mtlx", "default",
+        function(mtl) {
+            updateRender();
+        });
     material.uniforms.envMap = {type: 't', value: IBL};
     material.uniforms.instRand = {type: 'f', value: 0.0};
 
@@ -59,7 +131,7 @@ function init() {
             }
         });
         scene.add(object);
-        requestAnimationFrame(animate);
+        updateRender();
     });
 
     var ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200, 1, 1), new THREE.MeshStandardMaterial({color: 0x999999, roughness: 1.0}));
@@ -75,6 +147,32 @@ function init() {
     renderer.shadowMap.type = THREE.PCFShadowMap;
     //renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
+    drawTarget = new THREE.WebGLRenderTarget(
+        renderer.getSize().width,
+        renderer.getSize().height,
+        {
+            minFilter: THREE.LinearFilter,
+            magFilter: THREE.LinearFilter,
+            format: THREE.RGBAFormat,
+            stencilBuffer:false
+        });
+
+    accumTargets = [];
+    accumTargets[0] = new THREE.WebGLRenderTarget(
+        renderer.getSize().width,
+        renderer.getSize().height,
+        {
+            minFilter: THREE.LinearFilter,
+            magFilter: THREE.LinearFilter,
+            format: THREE.RGBAFormat,
+            stencilBuffer:false
+        });
+
+    accumTargets[1] = accumTargets[0].clone();
+
+    accumPass = CreateFullscreenPass('/shaders/accum.glsl');
+    copyPass = CreateFullscreenPass('/shaders/copy.glsl');
+
     container.appendChild(renderer.domElement);
 
     controls = new THREE.OrbitControls(camera, renderer.domElement)
@@ -84,14 +182,15 @@ function init() {
     var oldUpdate = controls.update;
     controls.update = function() {
         var ret = oldUpdate();
-        requestAnimationFrame(animate);        
+        updateRender();
+        return ret;
     }
 
     var ambient = new THREE.AmbientLight(0x101030);
     scene.add(ambient);
 
     function uc(e) {
-        requestAnimationFrame(animate);
+        updateRender();
     }
 
     function hexToRgb(hex) {
@@ -171,7 +270,7 @@ function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innderWidth, window.innerHeight);
-    requestAnimationFrame(animate);
+    updateRender();
 }
 
 /*function onDocumentMouseMove(event) {
@@ -186,14 +285,25 @@ function onWindowResize() {
 
 function animate() {
     material.uniforms.instRand.value = Math.random();
-    //requestAnimationFrame(animate);
     render();
+    if(accum++ < maxAccum) {
+        requestAnimationFrame(animate);
+    }
 }
 
 function render() {
-    /*camera.position.x += (mouseX - camera.position.x) * 0.05;
-    camera.position.y += (- mouseY - camera.position.y) * 0.05;
-    camera.position = camera.position.normalize() * cameraDistance;
-    camera.lookAt(scene.position);*/
-    renderer.render(scene, camera);
+    renderer.render(scene, camera, drawTarget);
+
+    accumPass.uniforms.inTex = {value: drawTarget.texture};
+    accumPass.uniforms.accumTex = {value: accumTargets[0].texture};
+    accumPass.uniforms.accumCount = {type: 'f', value: accum};
+    accumPass.render(accumTargets[1]);
+
+    // Swap accum targets
+    var t = accumTargets[1];
+    accumTargets[1] = accumTargets[0];
+    accumTargets[0] = t;
+
+    copyPass.uniforms.inTex = {value: t};
+    copyPass.render();
 }

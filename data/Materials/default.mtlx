@@ -2,7 +2,7 @@
 <materialx version="1.25" colorspace="gamma.rec709g22" require="matopgraph">
   <opgraph name="default_opgraph" fileprefix="/data/Textures">
     <image name="albedoColor_flatImage" type="color3">
-      <parameter name="file" type="filename" value="Checker2.png" />
+      <parameter name="file" type="filename" value="Checker.png" />
       <parameter name="uvset" type="integer" value="0" />
     </image>
     <output name="albedoColor_output" type="color3">
