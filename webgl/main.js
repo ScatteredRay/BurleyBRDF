@@ -5,6 +5,8 @@ var scene;
 var renderer;
 var controls;
 
+var IBL;
+
 var drawTarget;
 var accumTargets;
 
@@ -83,47 +85,19 @@ function CreateFullscreenPass(fragShader) {
     return pass;
 }
 
-function init() {
-    container = document.createElement('div');
-    document.body.appendChild(container);
-    camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 2000);
-    camera.position.z = 10;
-    camera.position.y = 1;
-    camera.lookAt(new THREE.Vector3(0, 1, 0));
-
-    scene = new THREE.Scene();
-
+function LoadMesh(objPath, mtlxPath, cb) {
     var manager = new THREE.LoadingManager();
     manager.onProgress = function(item, loaded, total) {
         console.log(item, loaded, total);
     }
 
-    function genCubeUrls(prefix, postfix) {
-        return [
-            prefix + 'px' + postfix, prefix + 'nx' + postfix,
-            prefix + 'py' + postfix, prefix + 'ny' + postfix,
-            prefix + 'pz' + postfix, prefix + 'nz' + postfix
-        ];
-    };
-
-    var hdrPaths = genCubeUrls('/data/PisaHDR/', '.hdr');
-    var loader = new THREE.HDRCubeTextureLoader();
-    var IBL = loader.load(
-        THREE.FloatType,
-        hdrPaths,
-        function() {
-            updateRender();
-        });
-
     var loader = new THREE.OBJLoader(manager);
-    loader.load('/data/Meshes/Suzanne.obj', function(object) {
+    loader.load(objPath, function(object) {
         create_materialx_shadermaterials(
-            "/data/Materials/default.mtlx",
+            mtlxPath,
             function(mtls) {
                 for(var mtl in mtls) {
                     updateMaterials.push(mtls[mtl]);
-                    mtls[mtl].uniforms.envMap = {type: 't', value: IBL};
-                    mtls[mtl].uniforms.instRand = {type: 'f', value: 0.0};
                     addGuiMaterial(mtls[mtl], mtl);
                 }
 
@@ -150,9 +124,41 @@ function init() {
                     }
                 });
 
-                scene.add(object);
-                updateRender();
+                cb(object);
             });
+    });
+}
+
+function init() {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 2000);
+    camera.position.z = 10;
+    camera.position.y = 1;
+    camera.lookAt(new THREE.Vector3(0, 1, 0));
+
+    scene = new THREE.Scene();
+
+    function genCubeUrls(prefix, postfix) {
+        return [
+            prefix + 'px' + postfix, prefix + 'nx' + postfix,
+            prefix + 'py' + postfix, prefix + 'ny' + postfix,
+            prefix + 'pz' + postfix, prefix + 'nz' + postfix
+        ];
+    };
+
+    var hdrPaths = genCubeUrls('/data/PisaHDR/', '.hdr');
+    var loader = new THREE.HDRCubeTextureLoader();
+    IBL = loader.load(
+        THREE.FloatType,
+        hdrPaths,
+        function() {
+            updateRender();
+        });
+
+    LoadMesh("/data/Meshes/Suzanne.obj", "/data/Materials/default.mtlx", function(object) {
+        scene.add(object);
+        updateRender();
     });
 
     var ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200, 1, 1), new THREE.MeshStandardMaterial({color: 0x999999, roughness: 1.0}));
@@ -226,32 +232,6 @@ function init() {
         ] : null;
     }
 
-    function addColor(gui, color, name) {
-        var c = {};
-        if(typeof color == 'undefined' || typeof color.r == 'undefined')
-            c[name] = [255, 255, 255];
-        else
-            c[name] = [color.r * 255, color.g * 255, color.b * 255];
-        var controller = gui.addColor(c, name).onChange(function(e) {
-            if(typeof c[name] == 'string')
-                c[name] = hexToRgb(c[name])
-            color.r = c[name][0] / 255.0;
-            color.g = c[name][1] / 255.0;
-            color.b = c[name][2] / 255.0;
-            uc(e);
-        });
-        return controller;
-    }
-
-    function addFloat(gui, parent, path, name) {
-        var c = {};
-        c[name] = parent[path]
-        var controller = gui.add(c, name, 0, 1).onChange(function(e) {
-            parent[path] = c[name];
-            uc(e);
-        });
-        return controller;
-    }
 
     function addLight(name) {
         var directionalLight = new THREE.DirectionalLight(0xffeedd);
@@ -295,33 +275,60 @@ function init() {
         guiParams.addLight();
 
     }
+}
 
-    function addGuiMaterial(mat, name) {
-        var matGui = gui.addFolder('Material ' + name);
-        function addUniform(uniform, name) {
-            switch(mat.uniforms[uniform].type) {
-            case '3f':
-                addColor(matGui, mat.uniforms[uniform].value, name);
-                break;
-            case 'f':
-            case '1f':
-                addFloat(matGui, mat.uniforms[uniform], 'value', name);
-                break;
-            }
+function addColor(gui, color, name) {
+    var c = {};
+    if(typeof color == 'undefined' || typeof color.r == 'undefined')
+        c[name] = [255, 255, 255];
+    else
+        c[name] = [color.r * 255, color.g * 255, color.b * 255];
+    var controller = gui.addColor(c, name).onChange(function(e) {
+        if(typeof c[name] == 'string')
+            c[name] = hexToRgb(c[name])
+        color.r = c[name][0] / 255.0;
+        color.g = c[name][1] / 255.0;
+        color.b = c[name][2] / 255.0;
+        updateRender();
+    });
+    return controller;
+}
+
+function addFloat(gui, parent, path, name) {
+    var c = {};
+    c[name] = parent[path]
+    var controller = gui.add(c, name, 0, 1).onChange(function(e) {
+        parent[path] = c[name];
+        updateRender();
+    });
+    return controller;
+}
+
+function addGuiMaterial(mat, name) {
+    var matGui = gui.addFolder('Material ' + name);
+    function addUniform(uniform, name) {
+        switch(mat.uniforms[uniform].type) {
+        case '3f':
+            addColor(matGui, mat.uniforms[uniform].value, name);
+            break;
+        case 'f':
+        case '1f':
+            addFloat(matGui, mat.uniforms[uniform], 'value', name);
+            break;
         }
-
-        addUniform('u_baseColor', "baseColor");
-        addUniform('u_metallic', 'metallic');
-        addUniform('u_subsurface', 'subsurface');
-        addUniform('u_specular', 'specular');
-        addUniform('u_roughness', 'roughness');
-        addUniform('u_specularTint', 'specularTint');
-        addUniform('u_anisotropic', 'anisotropic');
-        addUniform('u_sheen', 'sheen');
-        addUniform('u_sheenTint', 'sheenTint');
-        addUniform('u_clearcoat', 'clearcoat');
-        addUniform('u_clearcoatGloss', 'clearcoatGloss');
     }
+
+    addUniform('u_baseColor', "baseColor");
+    addUniform('u_metallic', 'metallic');
+    addUniform('u_subsurface', 'subsurface');
+    addUniform('u_specular', 'specular');
+    addUniform('u_roughness', 'roughness');
+    addUniform('u_specularTint', 'specularTint');
+    addUniform('u_anisotropic', 'anisotropic');
+    addUniform('u_sheen', 'sheen');
+    addUniform('u_sheenTint', 'sheenTint');
+    addUniform('u_clearcoat', 'clearcoat');
+    addUniform('u_clearcoatGloss', 'clearcoatGloss');
 }
 
 function onWindowResize() {
@@ -343,7 +350,8 @@ function onWindowResize() {
 
 function animate() {
     for(var i = 0; i < updateMaterials.length; i++) {
-        updateMaterials[i].uniforms.instRand.value = Math.random();
+        updateMaterials[i].uniforms.envMap = {type: 't', value: IBL};
+        updateMaterials[i].uniforms.instRand = {type: 'f', value: 0.0};
     }
     render();
     if(accum++ < maxAccum) {
