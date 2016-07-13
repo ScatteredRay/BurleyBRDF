@@ -4,7 +4,6 @@ var camera;
 var scene;
 var renderer;
 var controls;
-var material;
 
 var drawTarget;
 var accumTargets;
@@ -24,6 +23,8 @@ var jitterAA = true;
 
 var width = 0;
 var height = 0;
+
+var updateMaterials = [];
 
 init();
 animate();
@@ -114,30 +115,44 @@ function init() {
             updateRender();
         });
 
-    material = create_materialx_shadermaterial(
-        "/data/Materials/default.mtlx", "default",
-        function(mtl) {
-            addGuiMaterial(mtl);
-            updateRender();
-        });
-    material.uniforms.envMap = {type: 't', value: IBL};
-    material.uniforms.instRand = {type: 'f', value: 0.0};
-
     var loader = new THREE.OBJLoader(manager);
     loader.load('/data/Meshes/Suzanne.obj', function(object) {
-        object.traverse(function(child) {
-            if(child instanceof THREE.Mesh) {
-                if(child.geometry.index === null) {
-                    child.geometry.setIndex(new THREE.BufferAttribute(new Uint32Array([...Array(child.geometry.attributes.position.count).keys()]), 1, false));
+        create_materialx_shadermaterials(
+            "/data/Materials/default.mtlx",
+            function(mtls) {
+                for(var mtl in mtls) {
+                    updateMaterials.push(mtls[mtl]);
+                    mtls[mtl].uniforms.envMap = {type: 't', value: IBL};
+                    mtls[mtl].uniforms.instRand = {type: 'f', value: 0.0};
+                    addGuiMaterial(mtls[mtl], mtl);
                 }
-                THREE.BufferGeometryUtils.computeTangents(child.geometry);
-                child.castShadow = true;
-                child.receiveShadow = true;
-                child.material = material;
-            }
-        });
-        scene.add(object);
-        updateRender();
+
+                object.traverse(function(child) {
+                    if(child instanceof THREE.Mesh) {
+                        function setMaterial(material) {
+                            if(!!material.name && !!mtls[material.name]) {
+                                return mtls[material.name];
+                            }
+                            else if(!!material.materials) {
+                                for(var i = 0; i < material.materials.length; i++) {
+                                    material.materials[i] = setMaterial(material.materials[i]);
+                                }
+                            }
+                            return material;
+                        }
+                        if(child.geometry.index === null) {
+                            child.geometry.setIndex(new THREE.BufferAttribute(new Uint32Array([...Array(child.geometry.attributes.position.count).keys()]), 1, false));
+                        }
+                        child.material = setMaterial(child.material);
+                        THREE.BufferGeometryUtils.computeTangents(child.geometry);
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+                    }
+                });
+
+                scene.add(object);
+                updateRender();
+            });
     });
 
     var ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200, 1, 1), new THREE.MeshStandardMaterial({color: 0x999999, roughness: 1.0}));
@@ -281,9 +296,8 @@ function init() {
 
     }
 
-    var matNum = 0;
-    function addGuiMaterial(mat) {
-        var matGui = gui.addFolder('Material ' + matNum++);
+    function addGuiMaterial(mat, name) {
+        var matGui = gui.addFolder('Material ' + name);
         function addUniform(uniform, name) {
             switch(mat.uniforms[uniform].type) {
             case '3f':
@@ -328,7 +342,9 @@ function onWindowResize() {
 }*/
 
 function animate() {
-    material.uniforms.instRand.value = Math.random();
+    for(var i = 0; i < updateMaterials.length; i++) {
+        updateMaterials[i].uniforms.instRand.value = Math.random();
+    }
     render();
     if(accum++ < maxAccum) {
         requestAnimationFrame(animate);

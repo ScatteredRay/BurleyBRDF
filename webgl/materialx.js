@@ -229,77 +229,108 @@ function load_materialx_shaders(path, cb) {
 }
 
 if(typeof THREE !== 'undefined') {
-    function create_materialx_shadermaterial(path, matName, cb) {
+
+    function create_shadermaterial(mtl, cb) {
         var material = new THREE.ShaderMaterial({});
-        load_materialx_shaders(path, function(mtl) {
+        var manager = new THREE.LoadingManager();
+        manager.onProgress = function(item, loaded, total) {
+            console.log(item, loaded, total);
+        }
+        var loader = new THREE.ImageLoader(manager);
 
-            var manager = new THREE.LoadingManager();
-            manager.onProgress = function(item, loaded, total) {
-                console.log(item, loaded, total);
+        var nret = 0;
+        var needed = 2;
+
+        function maybeCB() {
+            nret++;
+            if(nret === needed)
+                cb(material);
+        }
+
+        var uniforms = mtl.uniforms;
+
+        for(var u in uniforms) {
+            if(typeof uniforms[u].file !== 'undefined') {
+                var texture = new THREE.Texture();
+                needed++;
+                loader.load(uniforms[u].file, function(u){
+                    return function(image) {
+                        texture.image = image;
+                        texture.magFilter = THREE.NearestFilter;
+                        uniforms[u].value = texture;
+                        texture.needsUpdate = true;
+                        maybeCB();
+                    }
+                }(u));
             }
-            var loader = new THREE.ImageLoader(manager);
+        }
+        uniforms = THREE.UniformsUtils.merge([THREE.UniformsLib["lights"], uniforms]);
+        for(var u in material.uniforms) {
+            uniforms[u] = material.uniforms[u];
+        }
+        material.uniforms = uniforms;
+        material.lights = true;
 
+        fetch('/shaders/surface_vert.glsl').then(
+            function(res) {
+                if(res.ok) {
+                    res.text().then(function(text) {
+                        material.vertexShader = text;
+                        material.needsUpdate = true;
+                        maybeCB();
+                    });
+                }
+                else {
+                    maybeCB();
+                }
+            }
+        );
+
+        fetch('/shaders/surface_frag.glsl').then(
+            function(res) {
+                if(res.ok) {
+                    res.text().then(function(text) {
+                        var fragSrc =
+                            mtl.decls.join('\n') + "\n\n" +
+                            text + "\n\n" +
+                            mtl.accessors.join('\n') + "\n\n";
+                        material.fragmentShader = fragSrc;
+                        material.needsUpdate = true;
+                        maybeCB();
+                    });
+                }
+                else {
+                    maybeCB();
+                }
+            }
+        );
+    }
+
+    function create_materialx_shadermaterials(path, cb) {
+        load_materialx_shaders(path, function(mtls) {
+            var materials = {};
+            var retCnt = Object.keys(mtls).length;
             var nret = 0;
-            var needed = 2;
-
-            function maybeCB() {
-                nret++;
-                if(nret === needed)
-                    cb(material);
-            }
-
-            var uniforms = mtl[matName].uniforms;
-
-            for(var u in uniforms) {
-                if(typeof uniforms[u].file !== 'undefined') {
-                    var texture = new THREE.Texture();
-                    needed++;
-                    loader.load(uniforms[u].file, function(u){
-                        return function(image) {
-                            texture.image = image;
-                            texture.magFilter = THREE.NearestFilter;
-                            uniforms[u].value = texture;
-                            texture.needsUpdate = true;
-                            maybeCB();
+            for(var mat in mtls)
+            {
+                (function(mat) {
+                    create_shadermaterial(mtls[mat], function(material) {
+                        materials[mat] = material;
+                        nret++;
+                        if(nret == retCnt) {
+                            cb(materials);
                         }
-                    }(u));
-                }
+                    });
+                })(mat);
             }
-            uniforms = THREE.UniformsUtils.merge([THREE.UniformsLib["lights"], uniforms]);
-            for(var u in material.uniforms) {
-                uniforms[u] = material.uniforms[u];
-            }
-            material.uniforms = uniforms;
-            material.lights = true;
-
-            fetch('/shaders/surface_vert.glsl').then(
-                function(res) {
-                    if(res.ok) {
-                        res.text().then(function(text) {
-                            material.vertexShader = text;
-                            material.needsUpdate = true;
-                            maybeCB();
-                        });
-                    }
-                }
-            );
-
-            fetch('/shaders/surface_frag.glsl').then(
-                function(res) {
-                    if(res.ok) {
-                        res.text().then(function(text) {
-                            var fragSrc =
-                                mtl[matName].decls.join('\n') + "\n\n" +
-                                text + "\n\n" +
-                                mtl[matName].accessors.join('\n') + "\n\n";
-                            material.fragmentShader = fragSrc;
-                            material.needsUpdate = true;
-                            maybeCB();
-                        });
-                    }
-                }
-            );
         });
-        return material;
+    }
+
+    function create_materialx_shadermaterial(path, matName, cb) {
+        load_materialx_shaders(path, function(mtls) {
+            create_shadermaterial(mtls[matName], function(material) {
+                cb(material);
+            });
+        });
     }
 }
