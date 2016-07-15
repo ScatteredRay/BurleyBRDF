@@ -350,8 +350,24 @@ function onWindowResize() {
 
 function animate() {
     for(var i = 0; i < updateMaterials.length; i++) {
+
+        function halton(i, base) {
+            var res = 0;
+            var f = 1;
+            while(i > 0) {
+                f = f / base;
+                res = res + f * (i % base);
+                i = i / base;
+            }
+            return res;
+        }
+
+        var halton2 = [halton(accum, 2), halton(accum, 3)];
+        var instRand = Math.random();
         updateMaterials[i].uniforms.envMap = {type: 't', value: IBL};
-        updateMaterials[i].uniforms.instRand = {type: 'f', value: 0.0};
+        updateMaterials[i].uniforms.instRand = {type: 'f', value: instRand};
+        updateMaterials[i].uniforms.accumCount = {type: 'i', value: accum};
+        updateMaterials[i].uniforms.accumHalton = {type: '2f', value: halton2};
     }
     render();
     if(accum++ < maxAccum) {
@@ -376,7 +392,7 @@ function render() {
 
     accumPass.uniforms.inTex = {value: drawTarget.texture};
     accumPass.uniforms.accumTex = {value: accumTargets[0].texture};
-    accumPass.uniforms.accumCount = {type: 'f', value: accum};
+    accumPass.uniforms.accumCount = {type: 'i', value: accum};
     accumPass.render(accumTargets[1]);
 
     // Swap accum targets

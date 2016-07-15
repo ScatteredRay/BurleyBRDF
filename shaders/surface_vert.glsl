@@ -1,8 +1,10 @@
-attribute vec4 tangent;
+attribute vec3 tangent;
 
 varying vec2 vUv;
-varying vec3 vWorldNormal;
 varying vec3 vScreenNormal;
+varying vec3 vScreenTangent;
+varying vec3 vScreenBitangent;
+varying vec3 vWorldNormal;
 varying vec3 vWorldTangent;
 varying vec3 vWorldBitangent;
 varying vec3 vWorldPos;
@@ -13,9 +15,11 @@ void main()
 {
     vUv = uv;
     vWorldPos = (modelMatrix * vec4(position.xyz, 1.0)).xyz;
+    vScreenNormal = normalize((normalMatrix * normal));
+    vScreenTangent = normalize((normalMatrix * tangent));
+    vScreenBitangent = normalize(cross(vScreenNormal, vScreenTangent));
     vWorldNormal = (modelMatrix * vec4(normal, 0.0)).xyz;
-    vScreenNormal = normalize((normalMatrix * normal).xyz);
-    vWorldTangent = normalize((modelMatrix * vec4(tangent.xyz, 0.0)).xyz);
+    vWorldTangent = normalize((modelMatrix * vec4(tangent, 0.0)).xyz);
     vWorldBitangent = normalize(cross(vWorldNormal, vWorldTangent));
     vWorldTangent = cross(vWorldTangent, vWorldNormal);
     vec3 cameraToVertex = normalize(vWorldPos.xyz - cameraPosition);
