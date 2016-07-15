@@ -42,7 +42,8 @@ void main()
 
     for(int i = 0; i < NUM_DIR_LIGHTS; i++) {
         vec3 lightVector = normalize(directionalLights[i].direction);
-        color += BRDF(lightVector, V, nz, nx, ny) * directionalLights[i].color;
+        vec3 l = BRDF(lightVector, V, nz, nx, ny) * directionalLights[i].color * dot(lightVector, nz);
+        color += l;
     }
 
     // IBL is done in world space.
@@ -66,5 +67,6 @@ void main()
         color += l * textureCube(envMap, d.xyz).rgb / float(numSamples);
     }
 
-    gl_FragColor = vec4(color, 1.0);
+    color = toneMapping(color);
+    gl_FragColor = linearToOutputTexel(vec4(color, 1.0));
 }
