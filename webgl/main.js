@@ -85,6 +85,30 @@ function CreateFullscreenPass(fragShader) {
     return pass;
 }
 
+function CalcGroupBounds(group) {
+    var bounds = null;
+    group.traverse(function(child) {
+        if(child instanceof THREE.Mesh &&
+           !!child.geometry) {
+            if(!child.geometry.boundingSphere) {
+                child.geometry.computeBoundingSphere();
+            }
+            var sp = child.geometry.boundingSphere;
+            if(!bounds) {
+                bounds = new THREE.Sphere(sp.center.clone(), sp.radius);
+            }
+            else {
+                var p1 = bounds.center.clone().add(bounds.center.clone().sub(sp.center).normalize().multiplyScalar(bounds.radius));
+                var p2 = sp.center.clone().add(sp.center.clone().sub(bounds.center).normalize().multiplyScalar(sp.radius));
+                var c = p1.clone().add(p2).divideScalar(2.0);
+                var r = p1.sub(p2).length() / 2.0;
+                bounds.set(c, r);
+            }
+        }
+    });
+    return bounds;
+}
+
 function LoadMesh(objPath, mtlxPath, cb) {
     var manager = new THREE.LoadingManager();
     manager.onProgress = function(item, loaded, total) {
@@ -129,6 +153,19 @@ function LoadMesh(objPath, mtlxPath, cb) {
     });
 }
 
+function FocusObject(object) {
+    var bounds = CalcGroupBounds(object);
+    camera.position.copy(bounds.center);
+    var viewRad = bounds.radius * 1.2;
+    var vfov = camera.fov * Math.PI / 180 ;
+    var hfov = 2.0 * Math.atan(Math.tan(vfov / 2.0) * camera.aspect)
+    var mfov = Math.min(vfov, hfov) / 2.0;
+    var dist = viewRad / Math.tan(mfov);
+    camera.position.add(new THREE.Vector3(0, 0, dist));
+    camera.lookAt(bounds.center);
+    controls.target.copy(bounds.center);
+}
+
 function init() {
     container = document.createElement('div');
     document.body.appendChild(container);
@@ -157,6 +194,7 @@ function init() {
         });
 
     LoadMesh("/data/Meshes/Suzanne.obj", "/data/Materials/default.mtlx", function(object) {
+        FocusObject(object);
         scene.add(object);
         updateRender();
     });
