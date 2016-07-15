@@ -11,6 +11,9 @@ varying vec3 vWorldPos;
 varying vec4 vScreenPos;
 varying vec3 vReflect;
 
+uniform mat4 directionalShadowMatrix[NUM_DIR_LIGHTS];
+varying vec4 vDirectionalShadowCoord[NUM_DIR_LIGHTS];
+
 void main()
 {
     vUv = uv;
@@ -25,4 +28,6 @@ void main()
     vec3 cameraToVertex = normalize(vWorldPos.xyz - cameraPosition);
     vReflect = reflect(cameraToVertex, vWorldNormal);
     gl_Position = vScreenPos = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+
+    vDirectionalShadowCoord[0] = directionalShadowMatrix[0] * vec4(vWorldPos, 1.0);
 }

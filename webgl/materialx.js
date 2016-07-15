@@ -264,7 +264,7 @@ if(typeof THREE !== 'undefined') {
                 }(u));
             }
         }
-        uniforms = THREE.UniformsUtils.merge([THREE.UniformsLib["lights"], uniforms]);
+        uniforms = THREE.UniformsUtils.merge([THREE.UniformsLib["lights"], THREE.UniformsLib["shadowmap"], uniforms]);
         for(var u in material.uniforms) {
             uniforms[u] = material.uniforms[u];
         }

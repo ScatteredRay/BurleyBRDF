@@ -27,6 +27,9 @@ var width = 0;
 var height = 0;
 
 var updateMaterials = [];
+var updateLights = [];
+
+var focusBounds = new THREE.Sphere(new THREE.Vector3(0, 0, 0), 6);
 
 init();
 animate();
@@ -166,6 +169,24 @@ function FocusObject(object) {
     controls.target.copy(bounds.center);
 }
 
+function MatchLightToBounds(light, bounds) {
+    light.shadow.camera.position.copy(bounds.center);
+    light.shadow.camera.near = -bounds.radius * 2.0;
+    light.shadow.camera.far = bounds.radius * 4.0;
+    light.shadow.camera.left = -bounds.radius * 2.0;
+    light.shadow.camera.right = bounds.radius * 2.0;
+    light.shadow.camera.bottom = -bounds.radius * 2.0;
+    light.shadow.camera.top = bounds.radius * 2.0;
+    light.shadow.camera.updateProjectionMatrix();
+}
+
+function FocusShadows(object) {
+    focusBounds = CalcGroupBounds(object);
+    for(var i = 0; i < updateLights.length; i++) {
+        MatchLightToBounds(updateLights[i], focusBounds);
+    }
+}
+
 function init() {
     container = document.createElement('div');
     document.body.appendChild(container);
@@ -193,8 +214,9 @@ function init() {
             updateRender();
         });
 
-    LoadMesh("/data/Meshes/Suzanne.obj", "/data/Materials/default.mtlx", function(object) {
+    LoadMesh("/data/Meshes/Suzanne.obj", "/data/Materials/Default.mtlx", function(object) {
         FocusObject(object);
+        FocusShadows(object)
         scene.add(object);
         updateRender();
     });
@@ -273,16 +295,12 @@ function init() {
 
     function addLight(name) {
         var directionalLight = new THREE.DirectionalLight(0xffeedd);
+        updateLights.push(directionalLight);
         directionalLight.position.set(-0.69, 0.48, 0.63);
         directionalLight.castShadow = false;
         directionalLight.shadow.mapSize.x = 2048;
         directionalLight.shadow.mapSize.y = 2048;
-        directionalLight.shadow.camera.near = -10;
-        directionalLight.shadow.camera.far = 10;
-        directionalLight.shadow.camera.left = -2;
-        directionalLight.shadow.camera.right = 2;
-        directionalLight.shadow.camera.bottom = -2;
-        directionalLight.shadow.camera.top = 2;
+        MatchLightToBounds(directionalLight, focusBounds);
         scene.add(directionalLight);
         var dirGui = gui.addFolder(name);
         addColor(dirGui, directionalLight.color, 'color');
