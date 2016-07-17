@@ -91,7 +91,8 @@ function CreateFullscreenPass(fragShader) {
 function CalcGroupBounds(group) {
     var bounds = null;
     group.traverse(function(child) {
-        if(child instanceof THREE.Mesh &&
+        if((child instanceof THREE.Mesh ||
+            child instanceof THREE.Line)&&
            !!child.geometry) {
             if(!child.geometry.boundingSphere) {
                 child.geometry.computeBoundingSphere();
@@ -150,7 +151,6 @@ function LoadMesh(objPath, mtlxPath, cb) {
                         child.receiveShadow = true;
                     }
                 });
-
                 cb(object);
             });
     });
@@ -214,7 +214,7 @@ function init() {
             updateRender();
         });
 
-    LoadMesh("/data/Meshes/Suzanne.obj", "/data/Materials/Default.mtlx", function(object) {
+    LoadMesh("/data/Meshes/SuzanneUdim.obj", "/data/Materials/udims.mtlx", function(object) {
         FocusObject(object);
         FocusShadows(object)
         scene.add(object);

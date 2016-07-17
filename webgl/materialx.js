@@ -9,19 +9,29 @@ function load_materialx(path, cb) {
             if(res.ok) {
                 res.text().then(function(data) {
                     var xml = parse_xml(data);
-                    parse_materialx(xml, mtls);
+                    var mtlX = parse_materialx(xml, mtls);
                     if(typeof cb !== 'undefined')
-                        cb(mtls);
+                        cb(mtlX);
                 });
             }
         });
-    return mtls;
 }
 
 function parse_materialx(mtlx, mtls) {
     var materials = mtlx.getElementsByTagName('material');
     var shaders = mtlx.getElementsByTagName('shader');
     var opgraphs = mtlx.getElementsByTagName('opgraph');
+    var geominfos = mtlx.getElementsByTagName('geominfo')
+
+    var udims = [];
+
+    for(var i = 0; i < geominfos.length; i++) {
+        var geominfo = geominfos[i];
+        var udim = geominfo.getAttribute('udim');
+        if(!!udim) {
+            udims.push(udim);
+        }
+    }
 
     function get_named(array, name) {
         for(var i = 0; i < array.length; i++) {
@@ -60,6 +70,8 @@ function parse_materialx(mtlx, mtls) {
     var materialList = {};
     if(typeof mtls !== 'undefined')
         materialList = mtls;
+
+    var out = {materials: materialList, udims: udims};
 
     for(var i = 0; i < materials.length; i++) {
         var m = materials[i];
@@ -106,7 +118,7 @@ function parse_materialx(mtlx, mtls) {
         }
         //'override'
     }
-    return materialList;
+    return out;
 }
 
 function load_materialx_shaders(path, cb) {
@@ -180,7 +192,8 @@ function load_materialx_shaders(path, cb) {
 
     var materials = {};
 
-    load_materialx(path, function(mtl) {
+    load_materialx(path, function(mtlX) {
+        var mtl = mtlX.materials;
         for(var s in mtl) {
             var uniforms = {};
             var decls = [];
@@ -220,40 +233,49 @@ function load_materialx_shaders(path, cb) {
                 accessors.push("return " + glslconvert(ret.ret, ret.retType, input.type) + ";");
                 accessors.push("}");
             }
+            if(mtlX.udims.length > 0) {
+                material.udims = mtlX.udims;
+            }
         }
         if(typeof cb !== 'undefined')
             cb(materials);
     });
-
     return materials;
 }
 
 if(typeof THREE !== 'undefined') {
+    var manager = new THREE.LoadingManager();
+    manager.onProgress = function(item, loaded, total) {
+        console.log(item, loaded, total);
+    }
+    var loader = new THREE.ImageLoader(manager);
 
-    function create_shadermaterial(mtl, cb) {
-        var material = new THREE.ShaderMaterial({});
-        var manager = new THREE.LoadingManager();
-        manager.onProgress = function(item, loaded, total) {
-            console.log(item, loaded, total);
+    function load_shadermaterial_uniforms(shaderMat, mtl, udim, cb) {
+
+        if(!!udim) {
+            shaderMat = shaderMat.clone();
         }
-        var loader = new THREE.ImageLoader(manager);
+
+        var uniforms = mtl.uniforms;
 
         var nret = 0;
-        var needed = 2;
+        var needed = 0;
 
         function maybeCB() {
             nret++;
             if(nret === needed)
-                cb(material);
+                cb(shaderMat);
         }
-
-        var uniforms = mtl.uniforms;
 
         for(var u in uniforms) {
             if(typeof uniforms[u].file !== 'undefined') {
                 var texture = new THREE.Texture();
                 needed++;
-                loader.load(uniforms[u].file, function(u){
+                var file = uniforms[u].file;
+                if(!!udim) {
+                    file = file.replace("%UDIM", udim);
+                }
+                loader.load(file, function(u){
                     return function(image) {
                         texture.image = image;
                         texture.magFilter = THREE.NearestFilter;
@@ -265,10 +287,21 @@ if(typeof THREE !== 'undefined') {
             }
         }
         uniforms = THREE.UniformsUtils.merge([THREE.UniformsLib["lights"], THREE.UniformsLib["shadowmap"], uniforms]);
-        for(var u in material.uniforms) {
-            uniforms[u] = material.uniforms[u];
+        shaderMat.uniforms = uniforms;
+    }
+
+    function create_shadermaterial(mtl, cb) {
+        var material = new THREE.ShaderMaterial({});
+
+        var nret = 0;
+        var needed = 2;
+
+        function maybeCB() {
+            nret++;
+            if(nret === needed)
+                cb(material);
         }
-        material.uniforms = uniforms;
+
         material.lights = true;
 
         fetch('/shaders/surface_vert.glsl').then(
@@ -309,27 +342,55 @@ if(typeof THREE !== 'undefined') {
     function create_materialx_shadermaterials(path, cb) {
         load_materialx_shaders(path, function(mtls) {
             var materials = {};
-            var retCnt = Object.keys(mtls).length;
+            var retCnt = 0;
             var nret = 0;
+            for(var mat in mtls) {
+                retCnt++;
+                if(!!mtls[mat].udims && mtls[mat].udims.length) {
+                    for(var u = 0; u < mtls[mat].udims.length; u++) {
+                        retCnt++;
+                    }
+                }
+            }
+            function trycb() {
+                nret++;
+                if(nret == retCnt) {
+                    cb(materials);
+                }
+            }
             for(var mat in mtls)
             {
                 (function(mat) {
                     create_shadermaterial(mtls[mat], function(material) {
-                        materials[mat] = material;
-                        nret++;
-                        if(nret == retCnt) {
-                            cb(materials);
+                        var udim0 = null;
+                        if(!!mtls[mat].udims && mtls[mat].udims.length) {
+                            udim0 = mtls[mat].udims[0];
+                            for(var u = 0; u < mtls[mat].udims.length; u++) {
+                                var udim = mtls[mat].udims[u];
+                                (function(udim) {
+                                    load_shadermaterial_uniforms(material, mtls[mat], udim, function(material) {
+                                        materials[mat + "." + udim] = material;
+                                        trycb()
+                                    });
+                                })(udim);
+                            }
                         }
+                        load_shadermaterial_uniforms(material, mtls[mat], udim0, function(material) {
+                            materials[mat] = material;
+                            trycb()
+                        });
                     });
                 })(mat);
             }
         });
     }
 
-    function create_materialx_shadermaterial(path, matName, cb) {
+    function create_materialx_shadermaterial(path, matName, udim, cb) {
         load_materialx_shaders(path, function(mtls) {
             create_shadermaterial(mtls[matName], function(material) {
-                cb(material);
+                load_shadermaterial_uniforms(material, mtls[matName], udim, function(material) {
+                    cb(material);
+                });
             });
         });
     }
