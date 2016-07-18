@@ -148,5 +148,5 @@ void main()
     }
 
     color = toneMapping(color);
-    gl_FragColor = linearToOutputTexel(vec4(color, 1.0));
+    gl_FragColor = max(linearToOutputTexel(vec4(color, 1.0)), vec4(0.0));
 }

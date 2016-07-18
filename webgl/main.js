@@ -34,9 +34,13 @@ var focusBounds = new THREE.Sphere(new THREE.Vector3(0, 0, 0), 6);
 init();
 animate();
 
-function updateRender() {
-    accum = 0;
+function continueRender() {
     requestAnimationFrame(animate);
+}
+
+function updateRender() {
+    continueRender();
+    accum = 0;
 }
 
 function CreateFullscreenPass(fragShader) {
@@ -305,7 +309,8 @@ function init() {
             minFilter: THREE.LinearFilter,
             magFilter: THREE.LinearFilter,
             format: THREE.RGBAFormat,
-            stencilBuffer:false
+            type: THREE.FloatType,
+            stencilBuffer: false,
         });
 
     accumTargets = [];
@@ -316,7 +321,9 @@ function init() {
             minFilter: THREE.LinearFilter,
             magFilter: THREE.LinearFilter,
             format: THREE.RGBAFormat,
-            stencilBuffer:false
+            type: THREE.FloatType,
+            stencilBuffer: false,
+            depthBuffer: false
         });
 
     accumTargets[1] = accumTargets[0].clone();
@@ -376,6 +383,7 @@ function init() {
     document.addEventListener('resize', onWindowResize, false);
     {
         gui = new dat.GUI();
+        gui.add(window, 'maxAccum').onChange(continueRender);
         gui.add(ground, 'visible').onChange(uc);
         gui.add(renderer, 'toneMappingExposure').min(0.0).step(0.01).onChange(uc);
         var ambGui = gui.addFolder('Ambient');
@@ -487,7 +495,7 @@ function animate() {
         updateMaterials[i].uniforms.accumHalton = {type: '2f', value: halton2};
     }
     render();
-    if(accum++ < maxAccum) {
+    if(accum++ < maxAccum || maxAccum < 0) {
         requestAnimationFrame(animate);
     }
 }
