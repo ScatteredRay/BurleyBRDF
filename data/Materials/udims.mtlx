@@ -24,9 +24,15 @@
     <input name="clearcoat" type="float" value="0.0" />
     <input name="clearcoatGloss" type="float" value="1.0" />
   </shader>
-  <geominfo udim="1001" />
-  <geominfo udim="1002" />
-  <geominfo udim="1011" />
+  <geominfo name="default_1001" geom="default">
+    <geomattr name="udim" type="integer" value="1001" />
+  </geominfo>
+  <geominfo name="default_1002" geom="default">
+    <geomattr name="udim" type="integer" value="1002" />
+  </geominfo>
+  <geominfo name="default_1011" geom="default">
+    <geomattr name="udim" type="integer" value="1011" />
+  </geominfo>
   <material name="default">
     <shaderref name="disney" shadertype="Surface" />
   </material>

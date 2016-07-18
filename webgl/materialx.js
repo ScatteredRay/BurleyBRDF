@@ -25,14 +25,6 @@ function parse_materialx(mtlx, mtls) {
 
     var udims = [];
 
-    for(var i = 0; i < geominfos.length; i++) {
-        var geominfo = geominfos[i];
-        var udim = geominfo.getAttribute('udim');
-        if(!!udim) {
-            udims.push(udim);
-        }
-    }
-
     function get_named(array, name) {
         for(var i = 0; i < array.length; i++) {
             if(array[i].getAttribute('name') === name) {
@@ -64,6 +56,16 @@ function parse_materialx(mtlx, mtls) {
             return value.split(',').map(function(v) { return parseFloat(v); });
         default:
             return value;
+        }
+    }
+
+    for(var i = 0; i < geominfos.length; i++) {
+        var geominfo = geominfos[i];
+        var attrs = geominfo.getElementsByTagName('geomattr');
+        var udimattr = get_named(attrs, 'udim');
+        var udim = udimattr.getAttribute('value');
+        if(!!udim) {
+            udims.push(udim);
         }
     }
 
@@ -279,6 +281,8 @@ if(typeof THREE !== 'undefined') {
                     return function(image) {
                         texture.image = image;
                         texture.magFilter = THREE.NearestFilter;
+                        texture.wrapS = THREE.RepeatWrapping;
+                        texture.wrapT = THREE.RepeatWrapping;
                         uniforms[u].value = texture;
                         texture.needsUpdate = true;
                         maybeCB();
