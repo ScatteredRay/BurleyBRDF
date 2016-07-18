@@ -259,7 +259,7 @@ if(typeof THREE !== 'undefined') {
         var uniforms = mtl.uniforms;
 
         var nret = 0;
-        var needed = 0;
+        var needed = 1;
 
         function maybeCB() {
             nret++;
@@ -288,6 +288,7 @@ if(typeof THREE !== 'undefined') {
         }
         uniforms = THREE.UniformsUtils.merge([THREE.UniformsLib["lights"], THREE.UniformsLib["shadowmap"], uniforms]);
         shaderMat.uniforms = uniforms;
+        maybeCB();
     }
 
     function create_shadermaterial(mtl, cb) {
