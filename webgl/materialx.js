@@ -355,7 +355,11 @@ if(typeof THREE !== 'undefined') {
             function trycb() {
                 nret++;
                 if(nret == retCnt) {
-                    cb(materials);
+                    var udims = null;
+                    if(!!mtls[mat].udims && mtls[mat].udims.length > 0) {
+                        udims = mtls[mat].udims;
+                    }
+                    cb(materials, udims);
                 }
             }
             for(var mat in mtls)

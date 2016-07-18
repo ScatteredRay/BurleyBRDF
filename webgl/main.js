@@ -113,6 +113,60 @@ function CalcGroupBounds(group) {
     return bounds;
 }
 
+function UvToUdim(u, v) {
+    u = Math.floor(u);
+    v = Math.floor(v);
+    return 1000 + 10 * v + u + 1;
+}
+
+function MeshProcessUdims(object) {
+    var tMeshes = [];
+    for(var c = 0; c < object.children.length; c++) {
+        var child = object.children[0];
+        var geo = child.geometry;
+        if(!!geo && !!geo.attributes && !!geo.attributes.uv) {
+            var attr = geo.attributes;
+            var meshes = {};
+            for(var i = 0; i < attr.uv.count; i++) {
+                var u = attr.uv.array[i * 2];
+                var v = attr.uv.array[(i * 2) + 1];
+                var udim = UvToUdim(u, v);
+                if(typeof meshes[udim] === 'undefined') {
+                    meshes[udim] = {};
+                    for(var a in attr) {
+                        meshes[udim][a] = {buffer: [], itemSize: attr[a].itemSize};
+                    }
+                }
+
+                for(var a in attr) {
+                    var count = attr[a].itemSize;
+                    for(var c = 0; c < count; c++) {
+                        meshes[udim][a].buffer.push(attr[a].array[i * count + c]);
+                    }
+                }
+            }
+            object.remove(child);
+            for(var u in meshes) {
+                var buff = new THREE.BufferGeometry();
+                var mesh = new THREE.Mesh(buff, new THREE.Material());
+                mesh.name = child.name;
+                mesh.material.name = child.material.name + "." + u;
+                for(var a in meshes[u]) {
+                    buff.addAttribute(a, new THREE.BufferAttribute(new Float32Array(meshes[u][a].buffer), meshes[u][a].itemSize));
+                }
+                buff.setIndex(new THREE.BufferAttribute(new Uint32Array([...Array(buff.attributes.position.count).keys()]), 1, false));
+                tMeshes.push(mesh);
+            }
+        }
+    }
+    for(var c = 0; c < object.children.length;) {
+        object.remove(object.children[c]);
+    }
+    for(var m = 0; m < tMeshes.length; m++) {
+        object.add(tMeshes[m]);
+    }
+}
+
 function LoadMesh(objPath, mtlxPath, cb) {
     var manager = new THREE.LoadingManager();
     manager.onProgress = function(item, loaded, total) {
@@ -123,7 +177,10 @@ function LoadMesh(objPath, mtlxPath, cb) {
     loader.load(objPath, function(object) {
         create_materialx_shadermaterials(
             mtlxPath,
-            function(mtls) {
+            function(mtls, udims) {
+                if(!!udims) {
+                    MeshProcessUdims(object);
+                }
                 for(var mtl in mtls) {
                     updateMaterials.push(mtls[mtl]);
                     addGuiMaterial(mtls[mtl], mtl);
@@ -139,6 +196,9 @@ function LoadMesh(objPath, mtlxPath, cb) {
                                 for(var i = 0; i < material.materials.length; i++) {
                                     material.materials[i] = setMaterial(material.materials[i]);
                                 }
+                            }
+                            else {
+                                return new THREE.MeshBasicMaterial();
                             }
                             return material;
                         }
@@ -214,7 +274,8 @@ function init() {
             updateRender();
         });
 
-    LoadMesh("/data/Meshes/SuzanneUdim.obj", "/data/Materials/udims.mtlx", function(object) {
+    //LoadMesh("/data/Meshes/SuzanneUdim.obj", "/data/Materials/udims.mtlx", function(object) {
+    LoadMesh("/data/Meshes/Suzanne.obj", "/data/Materials/default.mtlx", function(object) {
         FocusObject(object);
         FocusShadows(object)
         scene.add(object);
