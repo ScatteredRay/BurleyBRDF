@@ -34,8 +34,14 @@ var focusBounds = new THREE.Sphere(new THREE.Vector3(0, 0, 0), 6);
 init();
 animate();
 
+var renderTimeout = null;
+
 function continueRender() {
-    requestAnimationFrame(animate);
+    if(!!renderTimeout) {
+        cancelAnimationFrame(renderTimeout)
+        renderTimeout = null;
+    }
+    renderTimeout = requestAnimationFrame(animate);
 }
 
 function updateRender() {
@@ -474,20 +480,19 @@ function onWindowResize() {
 }*/
 
 function animate() {
-    for(var i = 0; i < updateMaterials.length; i++) {
-
-        function halton(i, base) {
-            var res = 0;
-            var f = 1;
-            while(i > 0) {
-                f = f / base;
-                res = res + f * (i % base);
-                i = i / base;
-            }
-            return res;
+    function halton(i, base) {
+        var res = 0;
+        var f = 1;
+        while(i > 0) {
+            f = f / base;
+            res = res + f * (i % base);
+            i = i / base;
         }
+        return res;
+    }
 
-        var halton2 = [halton(accum, 2), halton(accum, 3)];
+    var halton2 = [halton(accum, 2), halton(accum, 3)];
+    for(var i = 0; i < updateMaterials.length; i++) {
         var instRand = Math.random();
         updateMaterials[i].uniforms.envMap = {type: 't', value: IBL};
         updateMaterials[i].uniforms.instRand = {type: 'f', value: instRand};
@@ -496,7 +501,7 @@ function animate() {
     }
     render();
     if(accum++ < maxAccum || maxAccum < 0) {
-        requestAnimationFrame(animate);
+        continueRender();
     }
 }
 
