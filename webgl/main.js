@@ -471,9 +471,14 @@ function addGuiMaterial(gui, mat, name) {
 function addGuiObject(obj, name) {
     var objGui = sceneGui.addFolder(name);
     objGui.add(obj, 'visible').onChange(updateRender);
-    objGui.add(obj.position, 'x').onChange(updateRender);
-    objGui.add(obj.position, 'y').onChange(updateRender);
-    objGui.add(obj.position, 'z').onChange(updateRender);
+    var posGui = objGui.addFolder("Position");
+    posGui.add(obj.position, 'x').onChange(updateRender);
+    posGui.add(obj.position, 'y').onChange(updateRender);
+    posGui.add(obj.position, 'z').onChange(updateRender);
+    var rotGui = objGui.addFolder("Rotation");
+    rotGui.add(obj.rotation, 'x', -Math.PI, Math.PI).onChange(updateRender);
+    rotGui.add(obj.rotation, 'y', -Math.PI, Math.PI).onChange(updateRender);
+    rotGui.add(obj.rotation, 'z', -Math.PI, Math.PI).onChange(updateRender);
     obj.traverse(function(child) {
         if(!!child.material) {
             addGuiMaterial(objGui, child.material, child.material.name);
