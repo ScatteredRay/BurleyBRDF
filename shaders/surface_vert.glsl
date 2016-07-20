@@ -11,8 +11,10 @@ varying vec3 vWorldPos;
 varying vec4 vScreenPos;
 varying vec3 vReflect;
 
+#if NUM_DIR_LIGHTS > 0
 uniform mat4 directionalShadowMatrix[NUM_DIR_LIGHTS];
 varying vec4 vDirectionalShadowCoord[NUM_DIR_LIGHTS];
+#endif
 
 void main()
 {
@@ -29,5 +31,9 @@ void main()
     vReflect = reflect(cameraToVertex, vWorldNormal);
     gl_Position = vScreenPos = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
 
-    vDirectionalShadowCoord[0] = directionalShadowMatrix[0] * vec4(vWorldPos, 1.0);
+#if NUM_DIR_LIGHTS > 0
+    for(int i = 0; i < NUM_DIR_LIGHTS; i++) {
+        vDirectionalShadowCoord[i] = directionalShadowMatrix[i] * vec4(vWorldPos, 1.0);
+    }
+#endif
 }

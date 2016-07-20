@@ -27,9 +27,11 @@ struct DirectionalLight
     float shadowRadius;
 };
 
+#if NUM_DIR_LIGHTS > 0
 uniform DirectionalLight directionalLights[NUM_DIR_LIGHTS];
 uniform sampler2D directionalShadowMap[NUM_DIR_LIGHTS];
 varying vec4 vDirectionalShadowCoord[NUM_DIR_LIGHTS];
+#endif
 
 //THREE.js
     const float PackUpscale = 256. / 255.;const float UnpackDownscale = 255. / 256.;
@@ -117,6 +119,7 @@ void main()
 
     vec3 V = vec3(0.00, 0.00, 1.00);
 
+#if NUM_DIR_LIGHTS > 0
     for(int i = 0; i < NUM_DIR_LIGHTS; i++) {
         vec3 lightVector = normalize(directionalLights[i].direction);
         vec3 l = BRDF(lightVector, V, nz, nx, ny) * directionalLights[i].color * dot(lightVector, nz);
@@ -125,6 +128,7 @@ void main()
         }
         color += l;
     }
+#endif
 
     // IBL is done in world space.
     nz = normalize(vWorldNormal);
@@ -133,7 +137,7 @@ void main()
 
     V = normalize(cameraPosition - vWorldPos);
 
-    const int numSamples = 1;
+    const int numSamples = 32;
     for(int s = 0; s < numSamples; s++) {
         vec2 r = rand2(vScreenPos.xy + vec2(float(s) / 17.456, instRand));
         r = hash2(float(accumCount));
