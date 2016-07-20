@@ -17,6 +17,8 @@ var mouseX = 0;
 var mouseY = 0;
 
 var gui;
+var lightGui;
+var sceneGui;
 
 var maxAccum = 2048;
 var accum = 0;
@@ -193,7 +195,6 @@ function LoadMesh(objPath, mtlxPath, cb) {
                 }
                 for(var mtl in mtls) {
                     updateMaterials.push(mtls[mtl]);
-                    addGuiMaterial(mtls[mtl], mtl);
                 }
 
                 object.traverse(function(child) {
@@ -221,6 +222,7 @@ function LoadMesh(objPath, mtlxPath, cb) {
                         child.receiveShadow = true;
                     }
                 });
+                addGuiObject(object, objPath);
                 cb(object);
             });
     });
@@ -294,14 +296,13 @@ function init() {
 
     create_materialx_shadermaterial("/data/Materials/ground.mtlx", "default", null, function(mtl) {
         updateMaterials.push(mtl);
-        //addGuiMaterial(mtl, "Ground");
         var groundGeo = new THREE.PlaneBufferGeometry(200, 200, 1, 1);
         var ground = new THREE.Mesh(groundGeo, mtl);
         ground.rotateX(-Math.PI / 2.0);
         ground.receiveShadow = true;
         THREE.BufferGeometryUtils.computeTangents(ground.geometry);
         scene.add(ground);
-        //gui.add(ground, 'visible').onChange(uc);
+        addGuiObject(ground, "Ground");
     });
 
     renderer = new THREE.WebGLRenderer({antialias: true});
@@ -359,9 +360,7 @@ function init() {
     var ambient = new THREE.AmbientLight(0x101030);
     scene.add(ambient);
 
-    function uc(e) {
-        updateRender();
-    }
+    uc = updateRender;
 
     function hexToRgb(hex) {
         var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -377,12 +376,12 @@ function init() {
         var directionalLight = new THREE.DirectionalLight(0xffeedd);
         updateLights.push(directionalLight);
         directionalLight.position.set(-0.69, 0.48, 0.63);
-        directionalLight.castShadow = false;
+        directionalLight.castShadow = true;
         directionalLight.shadow.mapSize.x = 2048;
         directionalLight.shadow.mapSize.y = 2048;
         MatchLightToBounds(directionalLight, focusBounds);
         scene.add(directionalLight);
-        var dirGui = gui.addFolder(name);
+        var dirGui = lightGui.addFolder(name);
         addColor(dirGui, directionalLight.color, 'color');
         dirGui.add(directionalLight, 'intensity').min(0.0).step(0.01).onChange(uc);
         dirGui.add(directionalLight, 'castShadow').onChange(uc);
@@ -397,7 +396,8 @@ function init() {
         gui = new dat.GUI();
         gui.add(window, 'maxAccum').onChange(continueRender);
         gui.add(renderer, 'toneMappingExposure').min(0.0).step(0.01).onChange(uc);
-        var ambGui = gui.addFolder('Ambient');
+        lightGui = gui.addFolder('Lighting');
+        var ambGui = lightGui.addFolder('Ambient');
         addColor(ambGui, ambient.color, 'color');
         ambGui.add(ambient, 'intensity').min(0.0).step(0.01).onChange(uc);
         //ambGui.add(material, 'envMapIntensity').min(0.0).step(0.01).onChange(uc);
@@ -407,9 +407,10 @@ function init() {
                 addLight('Directional ' + nextLight++);                
             }
         };
-        gui.add(guiParams, 'addLight');
+        lightGui.add(guiParams, 'addLight');
         guiParams.addLight();
 
+        sceneGui = gui.addFolder('Scene');
     }
 }
 
@@ -440,7 +441,7 @@ function addFloat(gui, parent, path, name) {
     return controller;
 }
 
-function addGuiMaterial(mat, name) {
+function addGuiMaterial(gui, mat, name) {
     var matGui = gui.addFolder('Material ' + name);
     function addUniform(uniform, name) {
         switch(mat.uniforms[uniform].type) {
@@ -465,6 +466,19 @@ function addGuiMaterial(mat, name) {
     addUniform('u_sheenTint', 'sheenTint');
     addUniform('u_clearcoat', 'clearcoat');
     addUniform('u_clearcoatGloss', 'clearcoatGloss');
+}
+
+function addGuiObject(obj, name) {
+    var objGui = sceneGui.addFolder(name);
+    objGui.add(obj, 'visible').onChange(updateRender);
+    objGui.add(obj.position, 'x').onChange(updateRender);
+    objGui.add(obj.position, 'y').onChange(updateRender);
+    objGui.add(obj.position, 'z').onChange(updateRender);
+    obj.traverse(function(child) {
+        if(!!child.material) {
+            addGuiMaterial(objGui, child.material, child.material.name);
+        }
+    });
 }
 
 function onWindowResize() {

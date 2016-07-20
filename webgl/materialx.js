@@ -371,6 +371,7 @@ if(typeof THREE !== 'undefined') {
             {
                 (function(mat) {
                     create_shadermaterial(mtls[mat], function(material) {
+                        material.name = mat;
                         var udim0 = null;
                         if(!!mtls[mat].udims && mtls[mat].udims.length) {
                             udim0 = mtls[mat].udims[0];
