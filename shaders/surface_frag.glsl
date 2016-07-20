@@ -137,7 +137,7 @@ void main()
 
     V = normalize(cameraPosition - vWorldPos);
 
-    const int numSamples = 1;
+    const int numSamples = 32;
     for(int s = 0; s < numSamples; s++) {
         vec2 r = rand2(vScreenPos.xy + vec2(float(s) / 17.456, instRand));
         r = hash2(float(accumCount));
