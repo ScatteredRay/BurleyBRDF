@@ -292,11 +292,17 @@ function init() {
         updateRender();
     });
 
-    var ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200, 1, 1), new THREE.MeshStandardMaterial({color: 0x999999, roughness: 1.0}));
-    ground.rotateX(-Math.PI / 2.0);
-    ground.receiveShadow = true;
-    scene.add(ground);
-    ground.material.envMap = IBL;
+    create_materialx_shadermaterial("/data/Materials/ground.mtlx", "default", null, function(mtl) {
+        updateMaterials.push(mtl);
+        //addGuiMaterial(mtl, "Ground");
+        var groundGeo = new THREE.PlaneBufferGeometry(200, 200, 1, 1);
+        var ground = new THREE.Mesh(groundGeo, mtl);
+        ground.rotateX(-Math.PI / 2.0);
+        ground.receiveShadow = true;
+        THREE.BufferGeometryUtils.computeTangents(ground.geometry);
+        scene.add(ground);
+        //gui.add(ground, 'visible').onChange(uc);
+    });
 
     renderer = new THREE.WebGLRenderer({antialias: true});
     renderer.setPixelRatio(window.devicePixelRatio);
@@ -390,7 +396,6 @@ function init() {
     {
         gui = new dat.GUI();
         gui.add(window, 'maxAccum').onChange(continueRender);
-        gui.add(ground, 'visible').onChange(uc);
         gui.add(renderer, 'toneMappingExposure').min(0.0).step(0.01).onChange(uc);
         var ambGui = gui.addFolder('Ambient');
         addColor(ambGui, ambient.color, 'color');
