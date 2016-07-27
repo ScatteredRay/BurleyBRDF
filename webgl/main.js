@@ -481,7 +481,14 @@ function addGuiObject(obj, name) {
     rotGui.add(obj.rotation, 'z', -Math.PI, Math.PI).onChange(updateRender);
     obj.traverse(function(child) {
         if(!!child.material) {
-            addGuiMaterial(objGui, child.material, child.material.name);
+            if(child.material instanceof THREE.MultiMaterial) {
+                for(var m = 0; m < child.material.materials.length; m++) {
+                    addGuiMaterial(objGui, child.material.materials[m], child.material.materials[m].name);
+                }
+            }
+            else {
+                addGuiMaterial(objGui, child.material, child.material.name);
+            }
         }
     });
 }
