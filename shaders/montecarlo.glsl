@@ -78,13 +78,15 @@ vec4 CosWeightedHemisphereTangentSpace(vec2 e)
     float r = sqrt(e.x);
     float th = 2.0 * PI * e.y;
 
-    float pdf = r / (2.0 * PI);
-
-    return vec4(
+    vec4 ret = vec4(
         r * cos(th),
         r * sin(th),
         sqrt(max(0.0, 1.0 - e.x)),
-        pdf);
+        0);
+
+    float pdf = ret.z / PI;
+    ret.w = pdf;
+    return ret;
 }
 
 

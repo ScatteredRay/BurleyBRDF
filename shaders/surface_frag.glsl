@@ -145,9 +145,9 @@ void main()
         r += rand2(vScreenPos.xy);
         r = fract(r);
         vec4 d = CosWeightedHemisphere(r, nz, nx, ny);
-        float cosine = max(0.0, dot(d.xyz, nz)) / (2.0 * PI);
+        float cosine = max(0.0, dot(d.xyz, nz)) / (PI);
         float pdf = d.w;
-        vec3 l = max(BRDF(d.xyz, V, nz, nx, ny), vec3(0.0)) * pdf * 24.0;
+        vec3 l = max(BRDF(d.xyz, V, nz, nx, ny), vec3(0.0)) / pdf;
         color += l * textureCube(envMap, d.xyz).rgb / float(numSamples);
     }
 
