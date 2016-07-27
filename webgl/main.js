@@ -179,14 +179,22 @@ function MeshProcessUdims(object) {
     }
 }
 
-function LoadMesh(objPath, mtlxPath, cb) {
-    var manager = new THREE.LoadingManager();
-    manager.onProgress = function(item, loaded, total) {
-        console.log(item, loaded, total);
-    }
+function DefaultTextLoader(file, cb) {
+    fetch(file).then(
+        function(res) {
+            if(res.ok) {
+                res.text().then(cb);
+            }
+        }
+    );
+}
 
-    var loader = new THREE.OBJLoader(manager);
-    loader.load(objPath, function(object) {
+function LoadMesh(objPath, mtlxPath, cb, loaders) {
+    textLoader = (loaders === undefined) ? DefaultTextLoader : loaders.textLoader;
+
+    var loader = new THREE.OBJLoader();
+    textLoader(objPath, function(text) {
+        var object = loader.parse(text);
         create_materialx_shadermaterials(
             mtlxPath,
             function(mtls, udims) {
@@ -224,7 +232,7 @@ function LoadMesh(objPath, mtlxPath, cb) {
                 });
                 addGuiObject(object, objPath);
                 cb(object);
-            });
+            }, loaders);
     });
 }
 
@@ -257,6 +265,85 @@ function FocusShadows(object) {
     for(var i = 0; i < updateLights.length; i++) {
         MatchLightToBounds(updateLights[i], focusBounds);
     }
+}
+
+function ShowSceneDropTarget(scene) {
+
+    var div = document.createElement('div');
+
+    function handleDragOver(e) {
+        e.stopPropagation();
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+    }
+
+    function handleDrop(e) {
+        e.stopPropagation();
+        e.preventDefault();
+
+        var files = e.dataTransfer.files;
+        var mesh = null;
+        var mtlx = null;
+        var fileMap = {};
+
+        var loaders = {
+            textLoader: function(path, cb) {
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    cb(e.target.result);
+                };
+                reader.readAsText(fileMap[path]);
+            },
+            imageLoader: function(path, cb) {
+                var reader = new FileReader();
+                var image = document.createElement('img');
+                reader.onload = function(e) {
+                    image.src = e.target.result;
+                    cb(image);
+                };
+                reader.readAsDataURL(fileMap[path]);
+            }
+        };
+
+        function TryLoad() {
+
+        }
+
+        for(var i = 0; i < files.length; i++) {
+            var f = files[i];
+
+            fileMap[f.name] = f;
+            var ext = f.name.split('.').pop();
+            if(ext === 'obj') {
+                mesh = f.name;
+            }
+            else if(ext === 'mtlx') {
+                mtlx = f.name;
+            }
+        }
+        if(!!mesh && !!mtlx) {
+            LoadMesh(mesh, mtlx, function(object) {
+                FocusObject(object);
+                FocusShadows(object)
+                scene.add(object);
+                updateRender();
+            }, loaders);
+        }
+        document.body.removeChild(div);
+    }
+
+    div.addEventListener('dragover', handleDragOver, false);
+    div.addEventListener('drop', handleDrop, false);
+
+    div.style['position'] = "fixed";
+    div.style['width'] = "100%";
+    div.style['height'] = "100px";
+    div.style['left'] = 0;
+    div.style['background-color'] = "#FFFFFF";
+    div.style['top'] = 0;
+    div.style['z-index'] = 100;
+    document.body.appendChild(div);
+    return div;
 }
 
 function init() {
@@ -411,6 +498,12 @@ function init() {
         guiParams.addLight();
 
         sceneGui = gui.addFolder('Scene');
+
+        sceneGui.add({
+            AddLocal : function() {
+                ShowSceneDropTarget(scene);
+            }
+        }, 'AddLocal');
     }
 }
 
@@ -442,30 +535,36 @@ function addFloat(gui, parent, path, name) {
 }
 
 function addGuiMaterial(gui, mat, name) {
-    var matGui = gui.addFolder('Material ' + name);
-    function addUniform(uniform, name) {
-        switch(mat.uniforms[uniform].type) {
-        case '3f':
-            addColor(matGui, mat.uniforms[uniform].value, name);
-            break;
-        case 'f':
-        case '1f':
-            addFloat(matGui, mat.uniforms[uniform], 'value', name);
-            break;
+    try {
+        var matGui = gui.addFolder('Material ' + name);
+        function addUniform(uniform, name) {
+            switch(mat.uniforms[uniform].type) {
+            case '3f':
+                addColor(matGui, mat.uniforms[uniform].value, name);
+                break;
+            case 'f':
+            case '1f':
+                addFloat(matGui, mat.uniforms[uniform], 'value', name);
+                break;
+            }
         }
-    }
 
-    addUniform('u_baseColor', "baseColor");
-    addUniform('u_metallic', 'metallic');
-    addUniform('u_subsurface', 'subsurface');
-    addUniform('u_specular', 'specular');
-    addUniform('u_roughness', 'roughness');
-    addUniform('u_specularTint', 'specularTint');
-    addUniform('u_anisotropic', 'anisotropic');
-    addUniform('u_sheen', 'sheen');
-    addUniform('u_sheenTint', 'sheenTint');
-    addUniform('u_clearcoat', 'clearcoat');
-    addUniform('u_clearcoatGloss', 'clearcoatGloss');
+        addUniform('u_baseColor', "baseColor");
+        addUniform('u_metallic', 'metallic');
+        addUniform('u_subsurface', 'subsurface');
+        addUniform('u_specular', 'specular');
+        addUniform('u_roughness', 'roughness');
+        addUniform('u_specularTint', 'specularTint');
+        addUniform('u_anisotropic', 'anisotropic');
+        addUniform('u_sheen', 'sheen');
+        addUniform('u_sheenTint', 'sheenTint');
+        addUniform('u_clearcoat', 'clearcoat');
+        addUniform('u_clearcoatGloss', 'clearcoatGloss');
+    }
+    catch(e) {
+        //XXX
+        console.log(e);
+    }
 }
 
 function addGuiObject(obj, name) {

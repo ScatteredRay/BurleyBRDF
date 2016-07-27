@@ -2,19 +2,26 @@ function parse_xml(str) {
     return (new window.DOMParser()).parseFromString(str, "text/xml");
 }
 
-function load_materialx(path, cb) {
-    var mtls = {};
-    fetch(path).then(
+function default_text_loader(file, cb) {
+    fetch(file).then(
         function(res) {
             if(res.ok) {
-                res.text().then(function(data) {
-                    var xml = parse_xml(data);
-                    var mtlX = parse_materialx(xml, mtls);
-                    if(typeof cb !== 'undefined')
-                        cb(mtlX);
-                });
+                res.text().then(cb);
             }
-        });
+        }
+    );
+}
+
+function load_materialx(path, cb, textLoader) {
+    textLoader = (textLoader === undefined) ? default_text_loader : textLoader;
+
+    var mtls = {};
+    textLoader(path, function(data) {
+        var xml = parse_xml(data);
+        var mtlX = parse_materialx(xml, mtls);
+        if(typeof cb !== 'undefined')
+            cb(mtlX);
+    });
 }
 
 function parse_materialx(mtlx, mtls) {
@@ -123,7 +130,7 @@ function parse_materialx(mtlx, mtls) {
     return out;
 }
 
-function load_materialx_shaders(path, cb) {
+function load_materialx_shaders(path, cb, textLoader) {
 
     var uniPrefix = "u_";
     var accPrefix = "mat_";
@@ -241,7 +248,7 @@ function load_materialx_shaders(path, cb) {
         }
         if(typeof cb !== 'undefined')
             cb(materials);
-    });
+    }, textLoader);
     return materials;
 }
 
@@ -252,7 +259,13 @@ if(typeof THREE !== 'undefined') {
     }
     var loader = new THREE.ImageLoader(manager);
 
-    function load_shadermaterial_uniforms(shaderMat, mtl, udim, cb) {
+    function default_image_loader(url, cb) {
+        loader.load(url, cb);
+    }
+
+    function load_shadermaterial_uniforms(shaderMat, mtl, udim, cb, imageLoader) {
+
+        imageLoader = (imageLoader === undefined) ? default_image_loader : imageLoader;
 
         if(!!udim) {
             shaderMat = shaderMat.clone();
@@ -277,7 +290,7 @@ if(typeof THREE !== 'undefined') {
                 if(!!udim) {
                     file = file.replace("%UDIM", udim);
                 }
-                loader.load(file, function(u){
+                imageLoader(file, function(u){
                     return function(image) {
                         texture.image = image;
                         texture.magFilter = THREE.NearestFilter;
@@ -344,7 +357,10 @@ if(typeof THREE !== 'undefined') {
         );
     }
 
-    function create_materialx_shadermaterials(path, cb) {
+    function create_materialx_shadermaterials(path, cb, loaders) {
+        textLoader = (loaders === undefined) ? default_text_loader : loaders.textLoader;
+        imageLoader = (loaders === undefined) ? default_image_loader : loaders.imageLoader;
+
         load_materialx_shaders(path, function(mtls) {
             var materials = {};
             var retCnt = 0;
@@ -388,20 +404,23 @@ if(typeof THREE !== 'undefined') {
                         load_shadermaterial_uniforms(material, mtls[mat], udim0, function(material) {
                             materials[mat] = material;
                             trycb()
-                        });
+                        }, imageLoader);
                     });
                 })(mat);
             }
-        });
+        }, textLoader);
     }
 
-    function create_materialx_shadermaterial(path, matName, udim, cb) {
+    function create_materialx_shadermaterial(path, matName, udim, cb, loaders) {
+        textLoader = (loaders === undefined) ? default_text_loader : loaders.textLoader;
+        imageLoader = (loaders === undefined) ? default_image_loader : loaders.imageLoader;
+
         load_materialx_shaders(path, function(mtls) {
             create_shadermaterial(mtls[matName], function(material) {
                 load_shadermaterial_uniforms(material, mtls[matName], udim, function(material) {
                     cb(material);
-                });
+                }, imageLoader);
             });
-        });
+        }, textLoader);
     }
 }
