@@ -525,7 +525,9 @@ function init() {
                 window.open(renderer.context.canvas.toDataURL());
             },
             TurntableFrames : 10,
+            TurntableFPS : 24,
             RenderTurntable : function() {
+                var whammy = new Whammy.Video(this.TurntableFPS);
                 for(var f = 0; f < this.TurntableFrames; f++) {
                     var th = (f / this.TurntableFrames) * 2.0 * Math.PI;
                     var dist = FocusDist(focusBounds.radius, camera.fov, camera.aspect);
@@ -534,8 +536,12 @@ function init() {
                     for(accum = 0; accum < this.RenderAccum; accum++) {
                         render();
                     }
-                    window.open(renderer.context.canvas.toDataURL());
+                    whammy.add(renderer.context.canvas.toDataURL('image/webp'));
                 }
+                whammy.compile(false, function(video) {
+                    var videoURL = window.URL.createObjectURL(video);
+                    window.open(videoURL);
+                });
             }
         }
 
@@ -543,6 +549,7 @@ function init() {
         renderGui.add(renderSettings, 'RenderAccum');
         renderGui.add(renderSettings, 'RenderImage');
         renderGui.add(renderSettings, 'TurntableFrames');
+        renderGui.add(renderSettings, 'TurntableFPS');
         renderGui.add(renderSettings, 'RenderTurntable');
     }
 }
