@@ -236,14 +236,19 @@ function LoadMesh(objPath, mtlxPath, cb, loaders) {
     });
 }
 
+function FocusDist(radius, fov, aspect) {
+    var viewRad = radius * 1.2;
+    var vfov = fov * Math.PI / 180 ;
+    var hfov = 2.0 * Math.atan(Math.tan(vfov / 2.0) * aspect)
+    var mfov = Math.min(vfov, hfov) / 2.0;
+    var dist = viewRad / Math.tan(mfov);
+    return dist;
+}
+
 function FocusObject(object) {
     var bounds = CalcGroupBounds(object);
     camera.position.copy(bounds.center);
-    var viewRad = bounds.radius * 1.2;
-    var vfov = camera.fov * Math.PI / 180 ;
-    var hfov = 2.0 * Math.atan(Math.tan(vfov / 2.0) * camera.aspect)
-    var mfov = Math.min(vfov, hfov) / 2.0;
-    var dist = viewRad / Math.tan(mfov);
+    var dist = FocusDist(bounds.radius, camera.fov, camera.aspect);
     camera.position.add(new THREE.Vector3(0, 0, dist));
     camera.lookAt(bounds.center);
     controls.target.copy(bounds.center);
@@ -504,6 +509,41 @@ function init() {
                 ShowSceneDropTarget(scene);
             }
         }, 'AddLocal');
+
+        renderGui = gui.addFolder('Render');
+
+        var renderSettings = {
+            SaveImage : function() {
+                render(); // Because preserveDrawingBuffer is false
+                window.open(renderer.context.canvas.toDataURL());
+            },
+            RenderAccum : 64,
+            RenderImage : function() {
+                for(accum = 0; accum < this.RenderAccum; accum++) {
+                    render();
+                }
+                window.open(renderer.context.canvas.toDataURL());
+            },
+            TurntableFrames : 10,
+            RenderTurntable : function() {
+                for(var f = 0; f < this.TurntableFrames; f++) {
+                    var th = (f / this.TurntableFrames) * 2.0 * Math.PI;
+                    var dist = FocusDist(focusBounds.radius, camera.fov, camera.aspect);
+                    camera.position.copy((new THREE.Vector3(Math.sin(th)*10.0, 0, Math.cos(th)*10.0)).add(focusBounds.center));
+                    camera.lookAt(focusBounds.center);
+                    for(accum = 0; accum < this.RenderAccum; accum++) {
+                        render();
+                    }
+                    window.open(renderer.context.canvas.toDataURL());
+                }
+            }
+        }
+
+        renderGui.add(renderSettings, 'SaveImage');
+        renderGui.add(renderSettings, 'RenderAccum');
+        renderGui.add(renderSettings, 'RenderImage');
+        renderGui.add(renderSettings, 'TurntableFrames');
+        renderGui.add(renderSettings, 'RenderTurntable');
     }
 }
 
@@ -610,6 +650,13 @@ function onWindowResize() {
 }*/
 
 function animate() {
+    render();
+    if(accum++ < maxAccum || maxAccum < 0) {
+        continueRender();
+    }
+}
+
+function render() {
     function halton(i, base) {
         var res = 0;
         var f = 1;
@@ -629,13 +676,7 @@ function animate() {
         updateMaterials[i].uniforms.accumCount = {type: 'i', value: accum};
         updateMaterials[i].uniforms.accumHalton = {type: '2f', value: halton2};
     }
-    render();
-    if(accum++ < maxAccum || maxAccum < 0) {
-        continueRender();
-    }
-}
 
-function render() {
     var cam = camera;
     if(jitterAA) {
         cam = camera.clone();
