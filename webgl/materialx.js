@@ -398,7 +398,7 @@ if(typeof THREE !== 'undefined') {
                                         material.name = matName;
                                         materials[matName] = material;
                                         trycb()
-                                    });
+                                    }, imageLoader);
                                 })(udim);
                             }
                         }
