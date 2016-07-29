@@ -531,7 +531,7 @@ function init() {
                 for(var f = 0; f < this.TurntableFrames; f++) {
                     var th = (f / this.TurntableFrames) * 2.0 * Math.PI;
                     var dist = FocusDist(focusBounds.radius, camera.fov, camera.aspect);
-                    camera.position.copy((new THREE.Vector3(Math.sin(th)*10.0, 0, Math.cos(th)*10.0)).add(focusBounds.center));
+                    camera.position.copy((new THREE.Vector3(Math.sin(th)*dist, 0, Math.cos(th)*dist)).add(focusBounds.center));
                     camera.lookAt(focusBounds.center);
                     for(accum = 0; accum < this.RenderAccum; accum++) {
                         render();
