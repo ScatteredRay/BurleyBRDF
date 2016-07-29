@@ -93,6 +93,48 @@ function parse_materialx(mtlx, mtls) {
             var shader = get_named(shaders, shaderName);
             var inputs = shader.getElementsByTagName('input');
             var shaderInputs = {};
+
+            function traverse_node(nodeName, opgraph) {
+                var inNode = get_named(opgraph.children, nodeName);
+                if(typeof inNode !== 'undefined') {
+                    switch(inNode.tagName) {
+                        case 'image':
+                        {
+                            //XXX: Handling file only here.
+                            var file = get_named(inNode.getElementsByTagName('parameter'), 'file').getAttribute('value');
+                            var file_prefix = get_file_prefix(inNode);
+                            file = file_prefix + file;
+                            return {type: 'file', value: file};
+                        }
+                        case 'constant':
+                        {
+                            var type = inNode.getAttribute('type');
+                            return traverse_node_param(get_named(inNode.getElementsByTagName('parameter'), 'value'), opgraph);
+                        }
+                        case 'multiply':
+                        {
+                            var type = inNode.getAttribute('type');
+                            var in1 = traverse_node_param(get_named(inNode.getElementsByTagName('parameter'), 'in'), opgraph);
+                            var in2 = traverse_node_param(get_named(inNode.getElementsByTagName('parameter'), 'amount'), opgraph);
+                            return {type: 'multiply', valueType: type, in1: in1, in2: in2};
+                        }
+                    }
+                }
+            }
+
+            function traverse_node_param(param, opgraph) {
+                if(typeof param !== 'undefined') {
+                    var type = param.getAttribute('type');
+                    var value = param.getAttribute('value');
+                    if(type === 'opgraphnode') {
+                        return traverse_node(value, opgraph);
+                    }
+                    else {
+                        return {type: 'value', valueType: type, value: parse_mtlx_value(value, type)};
+                    }
+                }
+            }
+
             outMat.shaderInputs = shaderInputs;
             outMat.shader = shaderName;
             for(var j = 0; j < inputs.length; j++) {
@@ -111,17 +153,7 @@ function parse_materialx(mtlx, mtls) {
                     var opgraph = get_named(opgraphs, opgraphName);
                     var graphOutput = get_named(opgraph.getElementsByTagName('output'), graphOutputName);
                     var inParam = get_named(graphOutput.getElementsByTagName('parameter'), 'in');
-                    if(typeof inParam !== 'undefined') {
-                        var inNode = get_named(opgraph.children, inParam.getAttribute('value'));
-                        if(typeof inNode !== 'undefined') {
-                            //XXX: Handling file only here.
-                            var file = get_named(inNode.getElementsByTagName('parameter'), 'file').getAttribute('value');
-                            var file_prefix = get_file_prefix(inNode);
-                            file = file_prefix + file;
-                            shaderInput.file = file;
-                            shaderInput.input = {type: 'file', value: file};
-                        }
-                    }
+                    shaderInput.input = traverse_node_param(inParam, opgraph);
                 }
             }
         }
@@ -179,13 +211,23 @@ function load_materialx_shaders(path, cb, textLoader) {
             break;
         case 'value':
             var channelName = uNamer();
-            var uniformType = mtlxTypes[node.valueType].uniformType;
-            var glsltype = mtlxTypes[node.valueType].glslType;
+            retType = node.valueType;
+            var uniformType = mtlxTypes[retType].uniformType;
+            var glsltype = mtlxTypes[retType].glslType;
             uniforms[uniPrefix + channelName] = {type: uniformType, value: node.value};
             decls.push("uniform " + glsltype + " " + uniPrefix + channelName + ";");
             ret = gen_name();
-            retType = node.valueType;
             accessors.push(glsltype + " " + ret + " = " + uniPrefix + channelName + ";");
+            break;
+        case 'multiply':
+            retType = node.valueType;
+            var glsltype = mtlxTypes[retType].glslType;
+            var l = add_opgraph_node(node.in1, uNamer, uniforms, decls);
+            var r = add_opgraph_node(node.in2, uNamer, uniforms, decls);
+            for(var a in l.accessors) { accessors.push(l.accessors[a]); }
+            for(var a in r.accessors) { accessors.push(r.accessors[a]); }
+            ret = gen_name();
+            accessors.push(glsltype + " " + ret + " = " + glslconvert(l.ret, l.retType, retType) + " * " + glslconvert(r.ret, r.retType, retType) + ";");
             break;
         }
         return {accessors: accessors, ret: ret, retType: retType};

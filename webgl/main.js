@@ -575,10 +575,12 @@ function addColor(gui, color, name) {
     return controller;
 }
 
-function addFloat(gui, parent, path, name) {
+function addFloat(gui, parent, path, name, min, max) {
+    if(min === undefined) { min = 0; }
+    if(max === undefined) { max = 1; }
     var c = {};
     c[name] = parent[path]
-    var controller = gui.add(c, name, 0, 1).onChange(function(e) {
+    var controller = gui.add(c, name, min, max).onChange(function(e) {
         parent[path] = c[name];
         updateRender();
     });
@@ -588,29 +590,39 @@ function addFloat(gui, parent, path, name) {
 function addGuiMaterial(gui, mat, name) {
     try {
         var matGui = gui.addFolder('Material ' + name);
-        function addUniform(uniform, name) {
+        function addUniformImpl(uniform, name, min, max) {
             switch(mat.uniforms[uniform].type) {
             case '3f':
                 addColor(matGui, mat.uniforms[uniform].value, name);
                 break;
             case 'f':
             case '1f':
-                addFloat(matGui, mat.uniforms[uniform], 'value', name);
+                addFloat(matGui, mat.uniforms[uniform], 'value', name, min, max);
                 break;
             }
         }
 
-        addUniform('u_baseColor', "baseColor");
-        addUniform('u_metallic', 'metallic');
-        addUniform('u_subsurface', 'subsurface');
-        addUniform('u_specular', 'specular');
-        addUniform('u_roughness', 'roughness');
-        addUniform('u_specularTint', 'specularTint');
-        addUniform('u_anisotropic', 'anisotropic');
-        addUniform('u_sheen', 'sheen');
-        addUniform('u_sheenTint', 'sheenTint');
-        addUniform('u_clearcoat', 'clearcoat');
-        addUniform('u_clearcoatGloss', 'clearcoatGloss');
+        function addUniform(uniform, name, min, max) {
+            if(!!mat.uniforms[uniform]) {
+                addUniformImpl(uniform, name, min, max);
+            }
+            max = Math.max(max, 10.0);
+            for(var i = 1; !!mat.uniforms[uniform + i]; i++) {
+                addUniformImpl(uniform + i, name + i, min, max);
+            }
+        }
+
+        addUniform('u_baseColor', "baseColor", 0, 1);
+        addUniform('u_metallic', 'metallic', 0, 1);
+        addUniform('u_subsurface', 'subsurface', 0, 1);
+        addUniform('u_specular', 'specular', 0, 12.5);
+        addUniform('u_roughness', 'roughness', 0, 1);
+        addUniform('u_specularTint', 'specularTint', 0, 1);
+        addUniform('u_anisotropic', 'anisotropic', 0, 1);
+        addUniform('u_sheen', 'sheen', 0, 1);
+        addUniform('u_sheenTint', 'sheenTint', 0, 1);
+        addUniform('u_clearcoat', 'clearcoat', 0, 4);
+        addUniform('u_clearcoatGloss', 'clearcoatGloss', 0, 1);
     }
     catch(e) {
         //XXX
