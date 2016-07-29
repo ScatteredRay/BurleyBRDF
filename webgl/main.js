@@ -351,6 +351,34 @@ function ShowSceneDropTarget(scene) {
     return div;
 }
 
+function createRenderTargets(width, height) {
+    drawTarget = new THREE.WebGLRenderTarget(
+        width,
+        height,
+        {
+            minFilter: THREE.LinearFilter,
+            magFilter: THREE.LinearFilter,
+            format: THREE.RGBAFormat,
+            type: THREE.FloatType,
+            stencilBuffer: false,
+        });
+
+    accumTargets = [];
+    accumTargets[0] = new THREE.WebGLRenderTarget(
+        width,
+        height,
+        {
+            minFilter: THREE.LinearFilter,
+            magFilter: THREE.LinearFilter,
+            format: THREE.RGBAFormat,
+            type: THREE.FloatType,
+            stencilBuffer: false,
+            depthBuffer: false
+        });
+
+    accumTargets[1] = accumTargets[0].clone();
+}
+
 function init() {
     container = document.createElement('div');
     document.body.appendChild(container);
@@ -407,31 +435,7 @@ function init() {
     width = window.innerWidth;
     height = window.innerHeight;
 
-    drawTarget = new THREE.WebGLRenderTarget(
-        width,
-        height,
-        {
-            minFilter: THREE.LinearFilter,
-            magFilter: THREE.LinearFilter,
-            format: THREE.RGBAFormat,
-            type: THREE.FloatType,
-            stencilBuffer: false,
-        });
-
-    accumTargets = [];
-    accumTargets[0] = new THREE.WebGLRenderTarget(
-        width,
-        height,
-        {
-            minFilter: THREE.LinearFilter,
-            magFilter: THREE.LinearFilter,
-            format: THREE.RGBAFormat,
-            type: THREE.FloatType,
-            stencilBuffer: false,
-            depthBuffer: false
-        });
-
-    accumTargets[1] = accumTargets[0].clone();
+    createRenderTargets(width, height);
 
     accumPass = CreateFullscreenPass('/shaders/accum.glsl');
     copyPass = CreateFullscreenPass('/shaders/copy.glsl');
@@ -482,8 +486,8 @@ function init() {
         dirGui.add(directionalLight.position, 'z', -1, 1).onChange(uc);
     }
 
-    //document.addEventListener('mousemove', onDocumentMouseMove, false);
-    document.addEventListener('resize', onWindowResize, false);
+    window.addEventListener('resize', onWindowResize, false);
+
     {
         gui = new dat.GUI();
         gui.add(window, 'maxAccum').onChange(continueRender);
@@ -640,21 +644,14 @@ function addGuiObject(obj, name) {
 }
 
 function onWindowResize() {
-    camera.aspect = window.innerWidth / window.innerHeight;
+    width = window.innerWidth;
+    height = window.innerHeight;
+    camera.aspect = width / height;
     camera.updateProjectionMatrix();
-    renderer.setSize(window.innderWidth, window.innerHeight);
+    renderer.setSize(width, height);
+    createRenderTargets(width, height);
     updateRender();
 }
-
-/*function onDocumentMouseMove(event) {
-    if(event.buttons == 1) {
-        var windowHalfX = window.innerWidth/2;
-        var windowHalfY = window.innerHeight/2;
-        mouseX = (event.clientX - windowHalfX) / 2;
-        mouseY = (event.clientY - windowHalfY) / 2;
-        requestAnimationFrame(animate);
-    }
-}*/
 
 function animate() {
     render();
